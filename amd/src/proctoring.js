@@ -1,11 +1,5 @@
 define([], function () {
     /**
-     * Generates a random testAttemptId
-     * @returns {string}
-     */
-    const generateTestAttemptId = () => Math.random().toString(36).slice(2, 7);
-
-    /**
      * Generates a hashed version of the provided testAttemptId with the provided clientSecret
      * using HMAC with SHA256 for authentication.
      * @param {string} testAttemptId
@@ -24,25 +18,25 @@ define([], function () {
      * Generates the credentials object required by AutoProctor.
      * @param {string} clientId
      * @param {string} clientSecret
+     * @param {string} testAttemptId
      * @returns {object}
      */
-    function getCredentials(clientId, clientSecret) {
+    function getCredentials(clientId, clientSecret, testAttemptId) {
         // Check for test-attempt-id in the URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const testAttemptId = urlParams.get("test-attempt-id");
+        // const urlParams = new URLSearchParams(window.location.search);
+        // const testAttemptIdFromUrl = urlParams.get("test-attempt-id");
 
         // If no test-attempt-id is found, generate a new one and update the URL
-        if (!testAttemptId) {
-            const newId = generateTestAttemptId();
-            const curUrl = window.location.href;
-            let updatedUrl;
-            if (curUrl.indexOf("?") !== -1) {
-                updatedUrl = curUrl + `&test-attempt-id=${newId}`;
-            } else {
-                updatedUrl = curUrl + `?test-attempt-id=${newId}`;
-            }
-            window.location.href = updatedUrl;
-        }
+        // if (!testAttemptIdFromUrl) {
+        //     const curUrl = window.location.href;
+        //     let updatedUrl;
+        //     if (curUrl.indexOf("?") !== -1) {
+        //         updatedUrl = curUrl + `&test-attempt-id=${testAttemptId}`;
+        //     } else {
+        //         updatedUrl = curUrl + `?test-attempt-id=${testAttemptId}`;
+        //     }
+        //     window.location.href = updatedUrl;
+        // }
         const hashedTestAttemptId = getHashTestAttemptId(testAttemptId, clientSecret);
         const creds = {
             clientId,
@@ -88,47 +82,52 @@ define([], function () {
      * @name initAutoProctor
      * @param {string} clientId
      * @param {string} clientSecret
+     * @param {string} testAttemptId
      * @returns {Promise<void>}
      */
-    async function initAutoProctor(clientId, clientSecret) {
+    async function initAutoProctor(clientId, clientSecret, testAttemptId) {
         if (typeof window.AutoProctor === "undefined") {
-            setTimeout(initAutoProctor, 1000);
+            setTimeout(() => initAutoProctor(clientId, clientSecret, testAttemptId), 1000);
             return;
         }
 
-        const credentials = getCredentials(clientId, clientSecret);
+        const credentials = getCredentials(clientId, clientSecret, testAttemptId);
         const apInstance = new window.AutoProctor(credentials);
         await apInstance.setup(getProctoringOptions());
 
-        // Add event listeners for start and stop buttons
-        document.getElementById("btn-start").addEventListener("click", () => apInstance.start());
-        window.addEventListener("apMonitoringStarted", () => {
-            document.getElementById("btn-start").disabled = true;
-            document.getElementById("btn-stop").disabled = false;
-            document.getElementById("ap-test-proctoring-status").innerHTML = "Proctoring...";
+        // Auto-start proctoring
+        await apInstance.start();
+
+        // Handle quiz submission
+        document.querySelector('form#responseform').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await apInstance.stop();
+            e.target.submit();
         });
 
-        // Add event listener for stop button
-        document.getElementById("btn-stop").addEventListener("click", () => apInstance.stop());
         window.addEventListener("apMonitoringStopped", async () => {
-            document.getElementById("ap-proctoring-container").visibility = "hidden";
-            document.getElementById(
-                "ap-test-proctoring-status"
-            ).innerHTML = `Proctoring stopped, loading report in about 10 seconds...`;
             const reportOptions = getReportOptions();
             setTimeout(() => {
                 apInstance.showReport(reportOptions);
             }, 10000);
         });
+    }
 
-        // Add event listener for load report button
-        document.getElementById("load-report").addEventListener("click", () => {
-            const reportOptions = getReportOptions();
-            apInstance.showReport(reportOptions);
-        });
+    /**
+     * Loads the report for the given test attempt ID.
+     * @param {string} clientId
+     * @param {string} clientSecret
+     * @param {string} testAttemptId
+     * @returns {void}
+     */
+    function loadReport(clientId, clientSecret, testAttemptId) {
+        const credentials = getCredentials(clientId, clientSecret, testAttemptId);
+        const apInstance = new window.AutoProctor(credentials);
+        apInstance.showReport(getReportOptions());
     }
 
     return {
         init: initAutoProctor,
+        loadReport: loadReport,
     };
 });
