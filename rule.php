@@ -84,11 +84,20 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
 
         $tracking_options = self::get_ap_settings($this->quizobj->get_quiz()->id)->tracking_options;
 
-        // Store in database if this is the first preflight check
-        if (empty($attemptid)) {
-            // TODO: handle case where attemptid is empty
-            return;
+        // If attempt ID is empty, return. Because in that case this is not the endpoint for quiz attempt
+        if (empty($attemptid)) return;
+
+        // Check if test attempt ID already exists for this quiz attempt
+        $session = $DB->get_record('quizaccess_autoproctor_sessions', [
+            'quiz_id' => $this->quizobj->get_quiz()->id,
+            'quiz_attempt_id' => $attemptid,
+        ]);
+        
+        if ($session) {
+            // If session exists, use that test attempt ID
+            $testAttemptId = $session->test_attempt_id;
         } else {
+            // If session does not exist, create a new one
             $session = new stdClass();
             $session->quiz_id = $this->quizobj->get_quiz()->id;
             $session->quiz_attempt_id = $attemptid;
@@ -96,7 +105,6 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
             $session->started_at = time();
             $session->tracking_options = json_encode($tracking_options);
             $session->timecreated = $session->timemodified = time();
-            
             $DB->insert_record('quizaccess_autoproctor_sessions', $session);
         }
 
