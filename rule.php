@@ -35,32 +35,39 @@ if (class_exists('\mod_quiz\local\access_rule_base')) {
  * @copyright 2024 AutoProctor
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
+class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
+{
     /** @var quizaccess_autoproctor_quiz_settings_class_alias */
     protected $quizobj;
 
-    public function __construct($quizobj, $timenow) {
+    public function __construct($quizobj, $timenow)
+    {
         parent::__construct($quizobj, $timenow);
         $this->quizobj = $quizobj;
     }
 
-    public static function make(quizaccess_autoproctor_quiz_settings_class_alias $quizobj, $timenow, $canignoretimelimits) {
-        if (empty($quizobj->get_quiz()->requireautoproctor)) {
-            // return null;
-        }
+    public static function make(quizaccess_autoproctor_quiz_settings_class_alias $quizobj, $timenow, $canignoretimelimits)
+    {
+        $quizid = $quizobj->get_quiz()->id;
+        $proctoring_enabled = self::get_ap_settings($quizid)->proctoring_enabled;
+        if (empty($proctoring_enabled))
+            return null;
 
         return new self($quizobj, $timenow);
     }
 
-    public function is_preflight_check_required($attemptid) {
+    public function is_preflight_check_required($attemptid)
+    {
         // Check if the quiz requires autoproctor
-        if (empty($this->quizobj->get_quiz()->requireautoproctor)) {
-            // return false;
-        }
+        $quizid = $this->quizobj->get_quiz()->id;
+        $proctoring_enabled = self::get_ap_settings($quizid)->proctoring_enabled;
+        if (empty($proctoring_enabled))
+            return false;
         return true;
     }
 
-    public function add_preflight_check_form_fields(quizaccess_autoproctor_preflight_form_alias $quizform, MoodleQuickForm $mform, $attemptid) {
+    public function add_preflight_check_form_fields(quizaccess_autoproctor_preflight_form_alias $quizform, MoodleQuickForm $mform, $attemptid)
+    {
         global $PAGE, $DB;
 
         // Get client credentials
@@ -69,8 +76,12 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
 
         // Check if client credentials are set
         if (empty($clientId) || empty($clientSecret)) {
-            $mform->addElement('static', 'proctoringerror', '',
-                get_string('proctoring_required', 'quizaccess_autoproctor'));
+            $mform->addElement(
+                'static',
+                'proctoringerror',
+                '',
+                get_string('proctoring_required', 'quizaccess_autoproctor')
+            );
             return;
         }
 
@@ -85,14 +96,15 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
         $tracking_options = self::get_ap_settings($this->quizobj->get_quiz()->id)->tracking_options;
 
         // If attempt ID is empty, return. Because in that case this is not the endpoint for quiz attempt
-        if (empty($attemptid)) return;
+        if (empty($attemptid))
+            return;
 
         // Check if test attempt ID already exists for this quiz attempt
         $session = $DB->get_record('quizaccess_autoproctor_sessions', [
             'quiz_id' => $this->quizobj->get_quiz()->id,
             'quiz_attempt_id' => $attemptid,
         ]);
-        
+
         if ($session) {
             // If session exists, use that test attempt ID
             $testAttemptId = $session->test_attempt_id;
@@ -125,20 +137,28 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
         $mform->addElement('html', '<div id="ap-status-message">Setting up AutoProctor...<br>Waiting for proctoring to start...</div>');
     }
 
-    public function validate_preflight_check($data, $files, $errors, $attemptid) {
+    public function validate_preflight_check($data, $files, $errors, $attemptid)
+    {
         // TODO: check if autoproctor setup is complete
         return $errors;
     }
 
-    public static function add_settings_form_fields(mod_quiz_mod_form $quizform, MoodleQuickForm $mform) {
+    public static function add_settings_form_fields(mod_quiz_mod_form $quizform, MoodleQuickForm $mform)
+    {
         // Get the current autoproctor settings for the quiz
         $ap_settings = self::get_ap_settings($quizform->get_current()->id);
 
         // Add settings for enabling/disabling AutoProctor for a quiz
-        $mform->addElement('selectyesno', 'requireautoproctor',
-            get_string('requireautoproctor', 'quizaccess_autoproctor'));
-        $mform->addHelpButton('requireautoproctor',
-            'requireautoproctor', 'quizaccess_autoproctor');
+        $mform->addElement(
+            'selectyesno',
+            'requireautoproctor',
+            get_string('requireautoproctor', 'quizaccess_autoproctor')
+        );
+        $mform->addHelpButton(
+            'requireautoproctor',
+            'requireautoproctor',
+            'quizaccess_autoproctor'
+        );
         $mform->setDefault(
             'requireautoproctor',
             $ap_settings->proctoring_enabled ?? get_config(
@@ -171,9 +191,14 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
         }
     }
 
-    public static function save_settings($quiz) {
+    public static function save_settings($quiz)
+    {
         global $DB;
-        
+
+        // Get existing settings to preserve tracking options
+        $existing = $DB->get_record('quizaccess_autoproctor', ['quiz_id' => $quiz->id]);
+        $existing_options = $existing ? json_decode($existing->tracking_options, true) : [];
+
         // Prepare record for database
         $record = new stdClass();
         $record->quiz_id = $quiz->id;
@@ -182,23 +207,32 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
         // Prepare tracking options
         $tracking_options = new stdClass();
         $options = [
-            'audio', 'numHumans', 'tabSwitch', 'captureSwitchedTab',
-            'photosAtRandom', 'recordSession', 'detectMultipleScreens',
-            'testTakerPhoto', 'showCamPreview', 'forceFullScreen'
+            'audio',
+            'numHumans',
+            'tabSwitch',
+            'captureSwitchedTab',
+            'photosAtRandom',
+            'recordSession',
+            'detectMultipleScreens',
+            'testTakerPhoto',
+            'showCamPreview',
+            'forceFullScreen'
         ];
         foreach ($options as $option) {
             $form_field = "tracking_{$option}";
-            if (isset($quiz->$form_field)) {
-                $tracking_options->$option = (bool)$quiz->$form_field;
-                unset($quiz->$form_field);
+            // If proctoring is enabled, use form values, otherwise keep existing values
+            if ($record->proctoring_enabled) {
+                $tracking_options->$option = isset($quiz->$form_field) ? (bool) $quiz->$form_field : true;
+            } else {
+                $tracking_options->$option = $existing_options[$option] ?? true;
             }
+            unset($quiz->$form_field);
         }
         $record->tracking_options = json_encode($tracking_options);
 
         // Insert or update the record
-        if ($DB->record_exists('quizaccess_autoproctor', ['quiz_id' => $quiz->id])) {
+        if ($existing) {
             $record->timemodified = time();
-            $existing = $DB->get_record('quizaccess_autoproctor', ['quiz_id' => $quiz->id]);
             $record->id = $existing->id;
             $DB->update_record('quizaccess_autoproctor', $record);
         } else {
@@ -210,11 +244,12 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
         return true;
     }
 
-    private static function get_ap_settings($quizid) {
+    private static function get_ap_settings($quizid)
+    {
         global $DB;
         $result = new stdClass();
         $record = $DB->get_record('quizaccess_autoproctor', ['quiz_id' => $quizid]);
-        
+
         if ($record) {
             $result->tracking_options = json_decode($record->tracking_options, true);
             $result->proctoring_enabled = $record->proctoring_enabled;
