@@ -112,13 +112,21 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
     }
 
     public static function add_settings_form_fields(mod_quiz_mod_form $quizform, MoodleQuickForm $mform) {
+        // Get the current autoproctor settings for the quiz
+        $ap_settings = self::get_ap_settings($quizform->get_current()->id);
+
         // Add settings for enabling/disabling AutoProctor for a quiz
         $mform->addElement('selectyesno', 'requireautoproctor',
             get_string('requireautoproctor', 'quizaccess_autoproctor'));
         $mform->addHelpButton('requireautoproctor',
             'requireautoproctor', 'quizaccess_autoproctor');
-        $mform->setDefault('requireautoproctor',
-            get_config('quizaccess_autoproctor', 'enable_by_default'));
+        $mform->setDefault(
+            'requireautoproctor',
+            $ap_settings->proctoring_enabled ?? get_config(
+                'quizaccess_autoproctor',
+                'enable_by_default'
+            )
+        );
 
         // Add all tracking options
         $tracking_options = [
@@ -138,7 +146,7 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
             $element_name = "tracking_{$option}";
             $mform->addElement('selectyesno', $element_name, $string);
             $mform->addHelpButton($element_name, "tracking_{$option}", 'quizaccess_autoproctor');
-            $mform->setDefault($element_name, 1);
+            $mform->setDefault($element_name, $ap_settings->tracking_options[$option] ?? 1);
             $mform->disabledIf($element_name, 'requireautoproctor', 'eq', 0);
             $mform->setType($element_name, PARAM_INT);
         }
@@ -181,5 +189,15 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias {
         }
 
         return true;
+    }
+
+    private static function get_ap_settings($quizid) {
+        global $DB;
+        $record = $DB->get_record('quizaccess_autoproctor', ['quiz_id' => $quizid]);
+        $tracking_options = json_decode($record->tracking_options, true);
+        $result = new stdClass();
+        $result->tracking_options = $tracking_options;
+        $result->proctoring_enabled = $record->proctoring_enabled;
+        return $result;
     }
 }
