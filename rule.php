@@ -56,19 +56,14 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         return new self($quizobj, $timenow);
     }
 
-    public function is_preflight_check_required($attemptid)
-    {
-        // Check if the quiz requires autoproctor
-        $quizid = $this->quizobj->get_quiz()->id;
-        $proctoring_enabled = self::get_ap_settings($quizid)->proctoring_enabled;
-        if (empty($proctoring_enabled))
-            return false;
-        return true;
-    }
-
-    public function add_preflight_check_form_fields(quizaccess_autoproctor_preflight_form_alias $quizform, MoodleQuickForm $mform, $attemptid)
+    public function prevent_access()
     {
         global $PAGE, $DB;
+
+        // Only proceed if we're on the attempt page
+        if (strpos($PAGE->url->get_path(), '/mod/quiz/attempt.php') === false) {
+            return false;
+        }
 
         // Get client credentials
         $clientId = get_config('quizaccess_autoproctor', 'client_id');
@@ -76,28 +71,18 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
 
         // Check if client credentials are set
         if (empty($clientId) || empty($clientSecret)) {
-            $mform->addElement(
-                'static',
-                'proctoringerror',
-                '',
-                get_string('proctoring_required', 'quizaccess_autoproctor')
-            );
-            return;
+            return get_string('proctoring_required', 'quizaccess_autoproctor');
         }
 
-        // Get the current attempt ID or generate a new test attempt ID
-        // Mostly for development purposes, usually the test attempt ID won't be provided in the URL
-        $testAttemptId = optional_param(
-            'test-attempt-id',
-            uniqid('ap_'),
-            PARAM_RAW
-        );
-
-        $tracking_options = self::get_ap_settings($this->quizobj->get_quiz()->id)->tracking_options;
-
+        // Get the current attempt ID and check if it's empty
         // If attempt ID is empty, return. Because in that case this is not the endpoint for quiz attempt
+        $attemptid = optional_param('attempt', 0, PARAM_INT);
         if (empty($attemptid))
-            return;
+            return false;
+
+        // Get the current attempt ID or generate a new test attempt ID
+        $testAttemptId = optional_param('test-attempt-id', uniqid('ap_'), PARAM_RAW);
+        $tracking_options = self::get_ap_settings($this->quizobj->get_quiz()->id)->tracking_options;
 
         // Check if test attempt ID already exists for this quiz attempt
         $session = $DB->get_record('quizaccess_autoproctor_sessions', [
@@ -133,14 +118,20 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'trackingOptions' => $tracking_options
         ]);
 
-        // Add a hidden confirmation checkbox that will be checked via JavaScript when monitoring starts
-        $mform->addElement('html', '<div id="ap-status-message">Setting up AutoProctor...<br>Waiting for proctoring to start...</div>');
+        return false;
     }
 
-    public function validate_preflight_check($data, $files, $errors, $attemptid)
-    {
-        // TODO: check if autoproctor setup is complete
-        return $errors;
+    public function attempt_must_be_in_popup() {
+        // If proctoring is enabled, the attempt must be in a popup
+        return $this->get_ap_settings($this->quizobj->get_quiz()->id)->proctoring_enabled;
+    }
+
+    public function get_popup_options() {
+        return [
+            'height' => 600,
+            'width' => 800,
+            'fullscreen' => true,
+        ];
     }
 
     public static function add_settings_form_fields(mod_quiz_mod_form $quizform, MoodleQuickForm $mform)

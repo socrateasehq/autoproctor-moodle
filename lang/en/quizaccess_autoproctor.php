@@ -10,6 +10,7 @@ $string['enable_by_default'] = 'Enable AutoProctor by default';
 $string['enable_by_default_desc'] = 'If enabled, AutoProctor will be enabled for all new quizzes by default';
 $string['requireautoproctor'] = 'Require AutoProctor';
 $string['requireautoproctor_help'] = 'If enabled, students can only attempt the quiz when AutoProctor is running';
+$string['proctoring_not_ready'] = 'AutoProctor is not ready yet. You can only attempt the quiz when AutoProctor setup is complete.';
 
 // Proctoring options
 $string['tracking_audio'] = 'Audio Detection';
