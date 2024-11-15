@@ -72,9 +72,10 @@ define([], function () {
      * Handles the custom test start listener.
      * @function
      * @name handleCustomTestStartListener
+     * @param {number} quizTime
      * @returns {void}
      */
-    function handleCustomTestStartListener() {
+    function handleCustomTestStartListener(quizTime) {
         window.addEventListener("apMonitoringStarted", function () {
             // Show quiz content
             const quizContent = document.querySelector("#responseform");
@@ -88,9 +89,18 @@ define([], function () {
                 loadingDiv.remove();
             }
 
-            // Initialize the timer now using the original init function stored in new key under M.mod_quiz.timer
-            if (typeof M !== "undefined" && M.mod_quiz && M.mod_quiz.timer && M.mod_quiz.timer.originalInit) {
-                M.mod_quiz.timer.originalInit();
+            // Start the timer which was stopped until proctoring starts
+            const quizTimer = M?.mod_quiz?.timer;
+            if (quizTimer) {
+                // quizTimer.endtime = quizTime;
+                // quizTimer.update();
+                // quizTimer.init(window.Y, quizTime, 0);
+            }
+
+            // Show timer
+            const timerDiv = document.querySelector("#quiz-time-wrapper");
+            if (timerDiv) {
+                timerDiv.style.display = "flex";
             }
         });
     }
@@ -99,20 +109,13 @@ define([], function () {
      * Intercepts the quiz start to prevent it from starting until proctoring starts.
      * @function
      * @name interceptQuizStart
+     * @param {number} quizTime
      * @returns {void}
      */
-    function interceptQuizStart() {
-        // Store original timer init function
-        if (typeof M !== "undefined" && M.mod_quiz && M.mod_quiz.timer) {
-            const originalInit = M.mod_quiz.timer.init;
-
-            // Override timer init
-            M.mod_quiz.timer.init = function () {
-                // Do nothing - we\'ll call the original init after proctoring starts
-            };
-
-            // Store the original init for later
-            M.mod_quiz.timer.originalInit = originalInit;
+    function interceptQuizStart(quizTime) {
+        if (M?.mod_quiz?.timer?.stop) {
+            // Stop the timer until proctoring starts
+            M.mod_quiz.timer.stop();
         }
 
         // Hide quiz content initially
@@ -121,16 +124,21 @@ define([], function () {
             quizContent.style.display = "none";
         }
 
+        // Hide Timer
+        const timerDiv = document.querySelector("#quiz-timer-wrapper");
+        if (timerDiv) {
+            timerDiv.style.display = "none";
+        }
+
         // Show loading message
         const loadingDiv = document.createElement("div");
         loadingDiv.id = "ap-loading";
         loadingDiv.className = "alert alert-info";
-        loadingDiv.innerHTML =
-            "AutoProctor is not ready yet. Please wait until the setup for AutoProctor is complete.";
+        loadingDiv.innerHTML = "AutoProctor is not ready yet. Please wait until the setup for AutoProctor is complete.";
         quizContent.parentNode.insertBefore(loadingDiv, quizContent);
 
         // Setup listener for custom test start
-        handleCustomTestStartListener();
+        handleCustomTestStartListener(quizTime);
     }
 
     /**
@@ -142,15 +150,16 @@ define([], function () {
      * @param {string} clientSecret
      * @param {string} testAttemptId
      * @param {object} trackingOptions
+     * @param {number} quizTime
      * @returns {Promise<void>}
      */
-    async function initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions) {
+    async function initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions, quizTime) {
         // First of all, intercept the quiz start to prevent it from starting until proctoring starts
-        interceptQuizStart();
+        interceptQuizStart(quizTime);
 
         // Check if AutoProctor is already loaded and retry if not
         if (typeof window.AutoProctor === "undefined") {
-            setTimeout(() => initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions), 1000);
+            setTimeout(() => initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions, quizTime), 1000);
             return;
         }
 
@@ -190,7 +199,7 @@ define([], function () {
             setTimeout(() => loadReport(clientId, clientSecret, testAttemptId), 1000);
             return;
         }
-        
+
         const credentials = getCredentials(clientId, clientSecret, testAttemptId);
         const apInstance = new window.AutoProctor(credentials);
         apInstance.showReport(getReportOptions());
