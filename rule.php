@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * A rule controlling the AutoProctor.
+ *
+ * @package   quizaccess_autoproctor
+ * @copyright 2024 AutoProctor
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 defined('MOODLE_INTERNAL') || die();
 
 // Compatibility check for Moodle versions.
@@ -28,13 +36,6 @@ if (class_exists('\mod_quiz\local\access_rule_base')) {
     class_alias('\quiz', '\quizaccess_autoproctor_quiz_settings_class_alias');
 }
 
-/**
- * A rule controlling the AutoProctor.
- *
- * @package   quizaccess_autoproctor
- * @copyright 2024 AutoProctor
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
 class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
 {
     /** @var quizaccess_autoproctor_quiz_settings_class_alias */
@@ -249,5 +250,44 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             $result->proctoring_enabled = 0;
         }
         return $result;
+    }
+
+
+    /**
+     * Information, such as might be shown on the quiz view page, relating to this restriction.
+     * There is no obligation to return anything. If it is not appropriate to tell students
+     * about this rule, then just return ''.
+     *
+     * @return mixed a message, or array of messages, explaining the restriction
+     * @throws coding_exception
+     */
+    public function description() {
+        $messages = [get_string('proctoringheader', 'quizaccess_autoproctor'), get_string('proctoringpermissions', 'quizaccess_autoproctor')];
+
+        $messages[] = $this->get_download_config_button();
+
+        return $messages;
+    }
+
+    /**
+     * Get a button to view the Proctoring report.
+     *
+     * @return string A link to view report
+     * @throws coding_exception
+     */
+    private function get_download_config_button(): string {
+        global $OUTPUT, $USER, $CFG;
+
+        $context = context_module::instance($this->quizobj->get_quiz()->cmid, MUST_EXIST);
+        
+        if (has_capability('quizaccess/autoproctor:viewreport', $context, $USER->id)) {
+            $httplink = get_string('autoproctorresultslink', 'quizaccess_autoproctor');
+            // Add site identifier to make the lookup key globally unique
+            $lookup_key = ($CFG->siteidentifier) . '_' . $this->quizobj->get_quiz()->cmid . '_' . $this->quizobj->get_quiz()->id;
+            $httplink = $httplink . '?lookup_key=' . $lookup_key;
+            return $OUTPUT->single_button($httplink, get_string('autoproctorresults', 'quizaccess_autoproctor'), 'get');
+        } else {
+            return '';
+        }
     }
 }

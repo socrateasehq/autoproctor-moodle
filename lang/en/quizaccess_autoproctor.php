@@ -11,6 +11,11 @@ $string['enable_by_default_desc'] = 'If enabled, AutoProctor will be enabled for
 $string['requireautoproctor'] = 'Require AutoProctor';
 $string['requireautoproctor_help'] = 'If enabled, students can only attempt the quiz when AutoProctor is running';
 $string['proctoring_not_ready'] = 'AutoProctor is not ready yet. You can only attempt the quiz when AutoProctor setup is complete.';
+$string['proctoringheader'] = 'You will need to grant access to some or all of the following to attempt this quiz:';
+$string['proctoringpermissions'] = '1. Screen 2. Microphone 3. Camera';
+$string['autoproctorresults'] = 'View AutoProctor Results';
+$string['autoproctorresultslink'] = 'https://autoproctor.co/test-admin/developers/results/';
+$string['autoproctor:viewreport'] = 'View AutoProctor Results';
 
 // Proctoring options
 $string['tracking_audio'] = 'Audio Detection';
