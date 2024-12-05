@@ -1,6 +1,7 @@
 define(["jquery"], function ($) {
     const IFRAME_NAME = "ap-iframe";
     const MOODLE_PREFLIGHT_FORM_ID = "mod_quiz_preflight_form";
+    const FINISH_FORM_ID = "frm-finishattempt";
 
     // Cached variables
     let _apInstance;
@@ -10,6 +11,8 @@ define(["jquery"], function ($) {
 
     // Flags
     let isPreflightFormSubmitted = false;
+    let isMonitoringStarted = false;
+    let isMonitoringStopped = false;
 
     // Cached DOM elements
     let $apIframe;
@@ -153,16 +156,47 @@ define(["jquery"], function ($) {
      */
     const handleIframeUrlChange = async (newUrl) => {
         const fileLocation = getUrlFileLocation(newUrl);
-        const urlsToCreateApSession = ["attempt.php", "summary.php"];
-        const shouldCreateApSession = urlsToCreateApSession.includes(fileLocation);
 
-        if (shouldCreateApSession) {
+        // Create new AP session on attempt.php
+        if (fileLocation === "attempt.php") {
             await createNewApSession(newUrl, _testAttemptId, _trackingOptions);
-        } else if (_apInstance.isApTestStarted) {
-            _apInstance.stop();
+            return;
+        }
+
+        // Stop AP session on summary.php before submitting the form
+        if (fileLocation === "summary.php" && _apInstance.isApTestStarted) {
+            const $finishForm = document.querySelector(`#${FINISH_FORM_ID}`);
+
+            $finishForm?.addEventListener("submit", (e) => {
+                // Intercept submit event
+                e.preventDefault();
+
+                // Stop AP session
+                _apInstance.stop();
+                window.addEventListener("apMonitoringStopped", () => {
+                    isMonitoringStopped = true;
+                });
+
+                // Submit the form
+                $finishForm.submit();
+            });
+            return;
+        }
+
+        // If the file is neither attempt.php nor summary.php, then if:
+
+        // - AP session is already stopped, redirect to newUrl
+        if (isMonitoringStopped) {
+            window.location.href = newUrl;
+            return;
+        }
+
+        // - AP session is started but not stopped yet, wait for it to be stopped then redirect to newUrl
+        if (isMonitoringStarted) {
             window.addEventListener("apMonitoringStopped", () => {
                 window.location.href = newUrl;
             });
+            return;
         }
     };
 
@@ -272,6 +306,7 @@ define(["jquery"], function ($) {
                 await _apInstance.setup(getProctoringOptions(_trackingOptions));
                 await _apInstance.start();
                 window.addEventListener("apMonitoringStarted", () => {
+                    isMonitoringStarted = true;
                     submitPreflightForm(e.target.action, $preflightForm, formData);
                 });
             }
