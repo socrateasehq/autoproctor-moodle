@@ -1,7 +1,9 @@
 define(["jquery"], function ($) {
     const IFRAME_NAME = "ap-iframe";
     const MOODLE_PREFLIGHT_FORM_ID = "mod_quiz_preflight_form";
-    const FINISH_FORM_ID = "frm-finishattempt";
+    const MOODLE_PAGE_CONTENT_ID = "page-content";
+    const MOODLE_FINISH_FORM_SUBMIT_BTN = "#frm-finishattempt button[type='submit']";
+    const MOODLE_FINISH_MODAL_SUBMIT_BTN = "div.modal-footer > button.btn.btn-primary";
 
     // Cached variables
     let _apInstance;
@@ -11,8 +13,6 @@ define(["jquery"], function ($) {
 
     // Flags
     let isPreflightFormSubmitted = false;
-    let isMonitoringStarted = false;
-    let isMonitoringStopped = false;
 
     // Cached DOM elements
     let $apIframe;
@@ -88,6 +88,7 @@ define(["jquery"], function ($) {
             },
             showHowToVideo: false,
             lookupKey: _lookupKey,
+            testContainerId: MOODLE_PAGE_CONTENT_ID,
         };
         return proctoringOptions;
     };
@@ -134,21 +135,6 @@ define(["jquery"], function ($) {
     };
 
     /**
-     * Polls for the body element of an iframe until it becomes available, then executes a callback.
-     * @param {string} iframeId - The ID of the iframe to monitor
-     * @param {Function} callback - Function to call when the body element is available, with body element as parameter
-     */
-    // const pollForIframeBody = (iframeId, callback) => {
-    //     const elementIntervalId = setInterval(() => {
-    //         const targetElement = document.getElementById(iframeId).contentWindow.document.body;
-    //         if (targetElement) {
-    //             clearInterval(elementIntervalId);
-    //             callback(targetElement);
-    //         }
-    //     }, 500);
-    // };
-
-    /**
      * Handles URL changes in the iframe and starts or stops the proctoring process accordingly.
      * Proctoring will only start on attempt.php and summary.php
      * And will stop on any other page
@@ -157,47 +143,50 @@ define(["jquery"], function ($) {
     const handleIframeUrlChange = async (newUrl) => {
         const fileLocation = getUrlFileLocation(newUrl);
 
+        /**
+         * If it is summary.php, wait for the finish form to be submitted
+         * and then wait for the final submit button to appear in the modal
+         * and then stop the AP session on click of final submit button before
+         * redirecting to newUrl. Or else if the AP session is not started,
+         * just redirect to newUrl
+         */
+        if (fileLocation === "summary.php") {
+            // Handle quiz submission process
+            const handleFinalSubmit = ($finalSubmitBtn) => {
+                $finalSubmitBtn.addEventListener("click", async () => {
+                    if (_apInstance?.isApTestStarted) {
+                        await _apInstance?.stop();
+                        window.addEventListener("apMonitoringStopped", () => {
+                            window.location.href = newUrl;
+                        });
+                    } else {
+                        window.location.href = newUrl;
+                    }
+                });
+            };
+
+            // Wait for finish form button and set up submission flow
+            waitForElement(
+                MOODLE_FINISH_FORM_SUBMIT_BTN,
+                ($finishBtn) => {
+                    $finishBtn.addEventListener("click", () => {
+                        // Wait for final submit button to appear in the modal
+                        waitForElement(MOODLE_FINISH_MODAL_SUBMIT_BTN, handleFinalSubmit, true);
+                    });
+                },
+                true
+            );
+            return;
+        }
+
         // Create new AP session on attempt.php
         if (fileLocation === "attempt.php") {
             await createNewApSession(newUrl, _testAttemptId, _trackingOptions);
             return;
         }
 
-        // Stop AP session on summary.php before submitting the form
-        if (fileLocation === "summary.php" && _apInstance.isApTestStarted) {
-            const $finishForm = document.querySelector(`#${FINISH_FORM_ID}`);
-
-            $finishForm?.addEventListener("submit", (e) => {
-                // Intercept submit event
-                e.preventDefault();
-
-                // Stop AP session
-                _apInstance.stop();
-                window.addEventListener("apMonitoringStopped", () => {
-                    isMonitoringStopped = true;
-                });
-
-                // Submit the form
-                $finishForm.submit();
-            });
-            return;
-        }
-
-        // If the file is neither attempt.php nor summary.php, then if:
-
-        // - AP session is already stopped, redirect to newUrl
-        if (isMonitoringStopped) {
-            window.location.href = newUrl;
-            return;
-        }
-
-        // - AP session is started but not stopped yet, wait for it to be stopped then redirect to newUrl
-        if (isMonitoringStarted) {
-            window.addEventListener("apMonitoringStopped", () => {
-                window.location.href = newUrl;
-            });
-            return;
-        }
+        // If it is any other page, redirect to it
+        window.location.href = newUrl;
     };
 
     /**
@@ -275,6 +264,10 @@ define(["jquery"], function ($) {
         $apIframeLoader.append(loaderSpinner);
     };
 
+    /**
+     * Adds an event listener to the preflight form to intercept the submit event
+     * @param {object} $preflightForm
+     */
     const addSubmitPreflightEvent = ($preflightForm) => {
         // Set start attempt button to the center
         const formActionsContainer = $preflightForm.getElementsByClassName("felement");
@@ -306,7 +299,6 @@ define(["jquery"], function ($) {
                 await _apInstance.setup(getProctoringOptions(_trackingOptions));
                 await _apInstance.start();
                 window.addEventListener("apMonitoringStarted", () => {
-                    isMonitoringStarted = true;
                     submitPreflightForm(e.target.action, $preflightForm, formData);
                 });
             }
@@ -363,13 +355,17 @@ define(["jquery"], function ($) {
     };
 
     /**
-     * Waits for an element to appear in the document and then calls a callback with the element.
+     * Waits for an element to appear in the document or iframe (if isInsideIframe is true)
+     * and then calls a callback with the element.
      * @param {string} selector - The CSS selector to search for
      * @param {Function} callback - Function to call with the found element as parameter
+     * @param {boolean} isInsideIframe - Whether the element is inside the iframe
      */
-    const waitForElement = (selector, callback) => {
+    const waitForElement = (selector, callback, isInsideIframe = false) => {
         const elementIntervalId = setInterval(() => {
-            const targetElement = document.querySelector(selector);
+            const targetElement = isInsideIframe
+                ? document.getElementById(IFRAME_NAME)?.contentWindow?.document.querySelector(selector)
+                : document.querySelector(selector);
             if (targetElement) {
                 clearInterval(elementIntervalId);
                 callback(targetElement);
