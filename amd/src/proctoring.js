@@ -89,6 +89,7 @@ define(["jquery"], function ($) {
             showHowToVideo: false,
             lookupKey: _lookupKey,
             testContainerId: MOODLE_PAGE_CONTENT_ID,
+            alertBeforeUnload: false,
         };
         return proctoringOptions;
     };
