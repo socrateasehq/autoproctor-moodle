@@ -303,6 +303,7 @@ See `db/upgrade.php` for database migration history.
 | 2024120601 | Removed ended_at field |
 | 2024120702 | Previous stable version |
 | 2025022501 | Fixed install.xml schema mismatch (requireautoproctor → proctoring_enabled), added timecreated/timemodified fields |
+| 2025022502 | Fixed sessions table schema (removed session_id, status, start_time, end_time; added started_at) |
 
 ## Troubleshooting Development Issues
 
