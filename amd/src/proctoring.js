@@ -526,10 +526,9 @@ define(["jquery", "core/templates"], function ($, Templates) {
     }
 
     /**
-     * Adds a "View Proctoring Report" button to the quiz review page.
-     * The button opens the report in a modal using the AutoProctor SDK.
+     * Adds a tabbed interface to the quiz review page with Test Summary, Proctoring Summary, and Session Recording tabs.
      * @param {string} reportUrl - The URL to the report (fallback external link)
-     * @param {string} buttonLabel - The label for the button
+     * @param {string} buttonLabel - The label for the button (unused, kept for compatibility)
      * @param {string} clientId - The AutoProctor client ID
      * @param {string} clientSecret - The AutoProctor client secret
      * @param {string} testAttemptId - The test attempt ID for this session
@@ -537,24 +536,45 @@ define(["jquery", "core/templates"], function ($, Templates) {
     function addReportButton(reportUrl, buttonLabel, clientId, clientSecret, testAttemptId) {
         // Track if report has been loaded
         let reportLoaded = false;
-        let tabsInitialized = false;
 
         // Tab styles
-        const activeTabStyle = "border-bottom: 3px solid #106bbf; color: #106bbf; padding-bottom: 8px;";
-        const inactiveTabStyle = "border-bottom: 3px solid transparent; color: #6b7280; padding-bottom: 8px;";
+        const activeTabStyle = "border-bottom: 3px solid #106bbf; color: #106bbf; padding-bottom: 8px; font-weight: 600;";
+        const inactiveTabStyle = "border-bottom: 3px solid transparent; color: #6b7280; padding-bottom: 8px; font-weight: 600;";
 
         // Tab switching helper function
         const switchTab = (activeTabId) => {
-            const tabs = ["proctoring-summary-tab", "session-recording-tab"];
-            const contents = ["ap-report-content", "ap-report__session"];
+            const tabs = ["test-summary-tab", "proctoring-summary-tab", "session-recording-tab"];
+            const contents = ["ap-test-summary-content", "ap-report-content", "ap-report__session"];
 
             tabs.forEach((tabId, index) => {
                 const tab = document.getElementById(tabId);
                 const content = document.getElementById(contents[index]);
 
+                if (!tab || !content) {
+                    return;
+                }
+
                 if (tabId === activeTabId) {
                     tab.style.cssText = activeTabStyle + " cursor: pointer; white-space: nowrap;";
                     content.style.display = "block";
+
+                    // Load proctoring report when switching to proctoring tab (lazy load)
+                    if (tabId === "proctoring-summary-tab" && !reportLoaded) {
+                        reportLoaded = true;
+                        loadReport(clientId, clientSecret, testAttemptId);
+
+                        // Hide loader and show content after a delay
+                        setTimeout(() => {
+                            const loader = document.getElementById("ap-report-loader");
+                            const proctoringContent = document.getElementById("ap-proctoring-content");
+                            if (loader) {
+                                loader.style.display = "none";
+                            }
+                            if (proctoringContent) {
+                                proctoringContent.style.display = "block";
+                            }
+                        }, 2000);
+                    }
                 } else {
                     tab.style.cssText = inactiveTabStyle + " cursor: pointer; white-space: nowrap;";
                     content.style.display = "none";
@@ -563,51 +583,66 @@ define(["jquery", "core/templates"], function ($, Templates) {
         };
 
         // Wait for DOM to be ready
-        const insertButton = () => {
-            // Find the quiz info table or summary section to insert the button
+        const insertTabs = () => {
+            // Find the quiz info table or summary section
             const summaryTable = document.querySelector(".quizreviewsummary");
             const attemptInfo = document.querySelector(".mod_quiz-attempt-summary");
             const targetElement = summaryTable || attemptInfo;
 
             if (!targetElement) {
                 // Retry if the target element is not found yet
-                setTimeout(insertButton, 500);
+                setTimeout(insertTabs, 500);
                 return;
             }
 
-            // Check if button already exists
-            if (document.getElementById("ap-view-report-btn")) {
+            // Check if tabs already exist
+            if (document.getElementById("ap-tabs-container")) {
                 return;
             }
 
-            // Create the button container
-            const buttonContainer = document.createElement("div");
-            buttonContainer.style.cssText = "margin: 15px 0; text-align: center;";
+            // The summary table is inside a wrapper div (e.g., div.mb-3)
+            // The quiz questions are siblings of that wrapper, not children
+            // So we need to go up to the grandparent level
+            const summaryWrapper = targetElement.parentElement; // div.mb-3
+            const mainContent = summaryWrapper.parentElement;   // parent that contains both wrapper and questions
 
-            // Create the button
-            const button = document.createElement("button");
-            button.id = "ap-view-report-btn";
-            button.type = "button";
-            button.className = "btn btn-primary";
-            button.style.cssText = "background-color: #106bbf; border-color: #106bbf;";
-            button.innerHTML = `<i class="fa fa-eye mr-2"></i> ${buttonLabel}`;
-
-            // Create report container (hidden by default) with manual tabs
-            const reportContainer = document.createElement("div");
-            reportContainer.id = "ap-review-report-container";
-            reportContainer.style.cssText = "display: none; margin-top: 20px;";
-            reportContainer.innerHTML = `
-                <div id="ap-report-tabs" style="display: flex; gap: 24px; font-size: 16px; font-weight: 600;
-                            border-bottom: 1px solid #e5e7eb; padding: 8px 0; margin-bottom: 16px;">
-                    <div id="proctoring-summary-tab"
+            // Create tabs bar
+            const tabsBar = document.createElement("div");
+            tabsBar.id = "ap-tabs-container";
+            tabsBar.style.cssText = "margin: 20px 0;";
+            tabsBar.innerHTML = `
+                <div id="ap-report-tabs" style="display: flex; gap: 24px; font-size: 16px;
+                            background: white; border: 1px solid #e5e7eb; border-radius: 8px;
+                            padding: 12px 16px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div id="test-summary-tab"
                          style="${activeTabStyle} cursor: pointer; white-space: nowrap;">
+                        Test Summary
+                    </div>
+                    <div id="proctoring-summary-tab"
+                         style="${inactiveTabStyle} cursor: pointer; white-space: nowrap;">
                         Proctoring Summary
                     </div>
                     <div id="session-recording-tab"
                          style="${inactiveTabStyle} cursor: pointer; white-space: nowrap;">
                         Session Recording
                     </div>
+                    <a href="${reportUrl}" target="_blank"
+                       style="margin-left: auto; color: #106bbf; font-size: 14px; text-decoration: none;
+                              display: flex; align-items: center; gap: 4px;">
+                        <i class="fa fa-external-link"></i> Open Report
+                    </a>
                 </div>
+            `;
+
+            // Create test summary wrapper
+            const testSummaryWrapper = document.createElement("div");
+            testSummaryWrapper.id = "ap-test-summary-content";
+
+            // Create proctoring content container
+            const proctoringContainer = document.createElement("div");
+            proctoringContainer.id = "ap-report-content";
+            proctoringContainer.style.cssText = "display: none;";
+            proctoringContainer.innerHTML = `
                 <div id="ap-report-loader" style="text-align: center; padding: 40px;">
                     <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3;
                                 border-top: 4px solid #106bbf; border-radius: 50%; animation: ap-spin 1s linear infinite;">
@@ -620,79 +655,56 @@ define(["jquery", "core/templates"], function ($, Templates) {
                         }
                     </style>
                 </div>
-                <div id="ap-report-content" style="display: none;">
+                <div id="ap-proctoring-content" style="display: none;">
                     <div id="ap-report__overview" style="margin-bottom: 20px;"></div>
                     <div id="ap-report__proctor"></div>
                 </div>
-                <div id="ap-report__session" style="display: none;"></div>
             `;
 
-            // Add click handler to show report inline
-            button.addEventListener("click", () => {
-                const container = document.getElementById("ap-review-report-container");
+            // Create session recording container
+            const sessionContainer = document.createElement("div");
+            sessionContainer.id = "ap-report__session";
+            sessionContainer.style.cssText = "display: none;";
 
-                if (container.style.display === "none") {
-                    container.style.display = "block";
-                    button.innerHTML = `<i class="fa fa-eye-slash mr-2"></i> Hide Proctoring Report`;
+            // Collect all siblings that come AFTER the summaryWrapper (questions, submit buttons, etc.)
+            const allChildren = Array.from(mainContent.children);
+            const summaryWrapperIndex = allChildren.indexOf(summaryWrapper);
+            const contentToWrap = allChildren.filter((el, index) =>
+                index > summaryWrapperIndex &&
+                el.id !== "ap-tabs-container" &&
+                el.id !== "ap-test-summary-content" &&
+                el.id !== "ap-report-content" &&
+                el.id !== "ap-report__session"
+            );
 
-                    // Only load report the first time
-                    if (!reportLoaded) {
-                        reportLoaded = true;
+            // Insert tabs bar after the summary wrapper
+            summaryWrapper.after(tabsBar);
 
-                        // Load the report using AutoProctor SDK
-                        loadReport(clientId, clientSecret, testAttemptId);
+            // Insert the three content containers after tabs bar
+            tabsBar.after(testSummaryWrapper);
+            testSummaryWrapper.after(proctoringContainer);
+            proctoringContainer.after(sessionContainer);
 
-                        // Hide loader and show content after a delay
-                        setTimeout(() => {
-                            const loader = document.getElementById("ap-report-loader");
-                            const content = document.getElementById("ap-report-content");
-                            if (loader) {
-                                loader.style.display = "none";
-                            }
-                            if (content) {
-                                content.style.display = "block";
-                            }
-                        }, 2000);
-                    }
-
-                    // Set up tab click handlers (only once)
-                    if (!tabsInitialized) {
-                        tabsInitialized = true;
-                        setTimeout(() => {
-                            const proctoringTab = document.getElementById("proctoring-summary-tab");
-                            const sessionTab = document.getElementById("session-recording-tab");
-
-                            proctoringTab?.addEventListener("click", () => switchTab("proctoring-summary-tab"));
-                            sessionTab?.addEventListener("click", () => switchTab("session-recording-tab"));
-                        }, 100);
-                    }
-                } else {
-                    container.style.display = "none";
-                    button.innerHTML = `<i class="fa fa-eye mr-2"></i> ${buttonLabel}`;
-                }
+            // Move all the quiz content (questions, etc.) into test summary wrapper
+            contentToWrap.forEach(element => {
+                testSummaryWrapper.appendChild(element);
             });
 
-            // Also add a link to open in new tab
-            const externalLink = document.createElement("a");
-            externalLink.href = reportUrl;
-            externalLink.target = "_blank";
-            externalLink.className = "btn btn-outline-secondary ml-2";
-            externalLink.style.cssText = "margin-left: 10px;";
-            externalLink.innerHTML = `<i class="fa fa-external-link mr-2"></i> Open in New Tab`;
+            // Set up tab click handlers
+            const testTab = document.getElementById("test-summary-tab");
+            const proctoringTab = document.getElementById("proctoring-summary-tab");
+            const sessionTab = document.getElementById("session-recording-tab");
 
-            buttonContainer.appendChild(button);
-            buttonContainer.appendChild(externalLink);
-
-            // Insert after the target element
-            targetElement.parentNode.insertBefore(buttonContainer, targetElement.nextSibling);
-            targetElement.parentNode.insertBefore(reportContainer, buttonContainer.nextSibling);
+            testTab?.addEventListener("click", () => switchTab("test-summary-tab"));
+            proctoringTab?.addEventListener("click", () => switchTab("proctoring-summary-tab"));
+            sessionTab?.addEventListener("click", () => switchTab("session-recording-tab"));
         };
 
-        // Start trying to insert the button
+        // Start trying to insert the tabs
         if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", insertButton);
+            document.addEventListener("DOMContentLoaded", insertTabs);
         } else {
-            insertButton();
+            insertTabs();
         }
     }
 
