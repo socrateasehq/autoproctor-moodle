@@ -527,6 +527,50 @@ define(["jquery", "core/templates"], function ($, Templates) {
 
     /**
      * Adds a tabbed interface to the quiz review page with Test Summary, Proctoring Summary, and Session Recording tabs.
+     *
+     * This function transforms the Moodle quiz review page DOM to display results in a tabbed interface.
+     * It's called from PHP via js_call_amd when the user views the review.php page.
+     *
+     * DOM STRUCTURE EXPLANATION:
+     * --------------------------
+     * Moodle's review page has this structure:
+     *
+     *   <div id="region-main">                          (grandparent)
+     *       <div class="mb-3">                          (summaryWrapper)
+     *           <table class="quizreviewsummary">       (targetElement - attempt info table)
+     *       </div>
+     *       <div id="question-1">...</div>              (quiz questions - siblings of summaryWrapper)
+     *       <div id="question-2">...</div>
+     *       <div class="submitbtns">...</div>
+     *   </div>
+     *
+     * AFTER TRANSFORMATION:
+     * ---------------------
+     *   <div id="region-main">
+     *       <div class="mb-3">                          (stays at top - always visible)
+     *           <table class="quizreviewsummary">
+     *       </div>
+     *       <div id="ap-tabs-container">                (tab navigation bar)
+     *           [Test Summary] [Proctoring] [Recording] [Open Report link]
+     *       </div>
+     *       <div id="ap-test-summary-content">          (visible when Tab 1 active)
+     *           <div id="question-1">...</div>          (moved here from grandparent)
+     *           <div id="question-2">...</div>
+     *           <div class="submitbtns">...</div>
+     *       </div>
+     *       <div id="ap-report-content">                (visible when Tab 2 active)
+     *           <div id="ap-report__overview">          (AutoProctor overview - filled by SDK)
+     *           <div id="ap-report__proctor">           (AutoProctor details - filled by SDK)
+     *       </div>
+     *       <div id="ap-report__session">               (visible when Tab 3 active - filled by SDK)
+     *       </div>
+     *   </div>
+     *
+     * KEY IMPLEMENTATION NOTES:
+     * - The proctoring report is lazy-loaded only when the Proctoring Summary tab is clicked
+     * - AutoProctor SDK fills in ap-report__overview, ap-report__proctor, and ap-report__session
+     * - Tab switching simply toggles display:block/none on the content containers
+     *
      * @param {string} reportUrl - The URL to the report (fallback external link)
      * @param {string} buttonLabel - The label for the button (unused, kept for compatibility)
      * @param {string} clientId - The AutoProctor client ID
