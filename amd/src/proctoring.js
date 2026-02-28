@@ -10,6 +10,8 @@ define(["jquery", "core/templates"], function ($, Templates) {
     let _trackingOptions;
     let _testAttemptId;
     let _lookupKey;
+    let _apDomain;
+    let _apEnv;
 
     // Flags
     let isPreflightFormSubmitted = false;
@@ -40,16 +42,18 @@ define(["jquery", "core/templates"], function ($, Templates) {
      * @param {string} clientId
      * @param {string} clientSecret
      * @param {string} testAttemptId
+     * @param {string} apDomain - The AutoProctor API domain
+     * @param {string} apEnv - The environment (development/production)
      * @returns {object}
      */
-    function getCredentials(clientId, clientSecret, testAttemptId) {
+    function getCredentials(clientId, clientSecret, testAttemptId, apDomain, apEnv) {
         const hashedTestAttemptId = getHashTestAttemptId(testAttemptId, clientSecret);
         const creds = {
             clientId,
             testAttemptId,
             hashedTestAttemptId,
-            domain: "https://dev.autoproctor.co", // TODO: Change to production domain before release
-            environment: "development",           // TODO: Change to 'production' before release
+            domain: apDomain || "https://autoproctor.co",
+            environment: apEnv || "production",
         };
         return creds;
     }
@@ -114,7 +118,7 @@ define(["jquery", "core/templates"], function ($, Templates) {
         const handleUrlChange = () => {
             const currentUrl = $iframe.contentWindow.location.href;
 
-            // Show loading indicator
+            // Show loading indicator while iframe navigates
             $apIframeLoader.classList.remove("aptw-hidden");
 
             // Only process if URL has actually changed
@@ -327,7 +331,10 @@ define(["jquery", "core/templates"], function ($, Templates) {
             const { action } = e.detail;
             if (action === "hide") {
                 isApProgressCompleted = true;
-            } else if (action === "show") {
+                // Don't hide loader here - let hideLoaderIfProgressCompleted handle it
+                // after iframe finishes loading
+            } else {
+                // Show progress bar on any progress event (not just action === "show")
                 document.getElementById("ap-progress-text").style.display = "block";
                 document.getElementById("pre-loader-text").style.display = "none";
                 $apIframeLoader?.classList.remove("aptw-hidden");
@@ -419,6 +426,7 @@ define(["jquery", "core/templates"], function ($, Templates) {
                     return;
                 }
 
+                // Show loader while iframe loads
                 $apIframeLoader.classList.remove("aptw-hidden");
                 $preflightForm.setAttribute("target", IFRAME_NAME);
                 $preflightForm.submit();
@@ -475,18 +483,22 @@ define(["jquery", "core/templates"], function ($, Templates) {
      * @param {object} trackingOptions
      * @param {number} cmid
      * @param {string} lookupKey
+     * @param {string} apDomain - The AutoProctor API domain
+     * @param {string} apEnv - The environment (development/production)
      * @returns {Promise<void>}
      */
-    async function initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions, cmid, lookupKey) {
+    async function initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions, cmid, lookupKey, apDomain, apEnv) {
         // Don't initialize if we're inside an iframe (prevents double initialization on redirect pages)
         if (window !== window.top) {
             return;
         }
 
         // Check if AutoProctor is already loaded and retry if not
-        if (typeof window.AutoProctor === "undefined") {
+        // Also verify it's actually a constructor (not just an object from failed AMD load)
+        if (typeof window.AutoProctor === "undefined" || typeof window.AutoProctor !== "function") {
+            console.log("[AP] Waiting for AutoProctor SDK...", typeof window.AutoProctor, window.AutoProctor);
             setTimeout(
-                () => initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions, cmid, lookupKey),
+                () => initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions, cmid, lookupKey, apDomain, apEnv),
                 1000
             );
             return;
@@ -496,9 +508,11 @@ define(["jquery", "core/templates"], function ($, Templates) {
         _trackingOptions = trackingOptions ?? {};
         _testAttemptId = testAttemptId ?? "";
         _lookupKey = lookupKey ?? "";
+        _apDomain = apDomain ?? "https://autoproctor.co";
+        _apEnv = apEnv ?? "production";
 
         // Initialize AutoProctor instance
-        const credentials = getCredentials(clientId, clientSecret, testAttemptId);
+        const credentials = getCredentials(clientId, clientSecret, testAttemptId, _apDomain, _apEnv);
         _apInstance = new window.AutoProctor(credentials);
 
         addIframe();
@@ -523,16 +537,19 @@ define(["jquery", "core/templates"], function ($, Templates) {
      * @param {string} clientSecret
      * @param {string} testAttemptId
      * @param {boolean} includeSessionRecording - Whether to include session recording in the report
+     * @param {string} apDomain - The AutoProctor API domain
+     * @param {string} apEnv - The environment (development/production)
      * @returns {void}
      */
-    function loadReport(clientId, clientSecret, testAttemptId, includeSessionRecording = true) {
+    function loadReport(clientId, clientSecret, testAttemptId, includeSessionRecording = true, apDomain, apEnv) {
         // Check if AutoProctor is already loaded and retry if not
-        if (typeof window.AutoProctor === "undefined") {
-            setTimeout(() => loadReport(clientId, clientSecret, testAttemptId, includeSessionRecording), 1000);
+        if (typeof window.AutoProctor === "undefined" || typeof window.AutoProctor !== "function") {
+            console.log("[AP] Waiting for AutoProctor SDK (loadReport)...", typeof window.AutoProctor);
+            setTimeout(() => loadReport(clientId, clientSecret, testAttemptId, includeSessionRecording, apDomain, apEnv), 1000);
             return;
         }
 
-        const credentials = getCredentials(clientId, clientSecret, testAttemptId);
+        const credentials = getCredentials(clientId, clientSecret, testAttemptId, apDomain, apEnv);
         const apInstance = new window.AutoProctor(credentials);
         apInstance.showReport(getReportOptions(includeSessionRecording));
     }
@@ -589,8 +606,10 @@ define(["jquery", "core/templates"], function ($, Templates) {
      * @param {string} clientSecret - The AutoProctor client secret
      * @param {string} testAttemptId - The test attempt ID for this session
      * @param {object} trackingOptions - The tracking options used for this session (to determine which tabs to show)
+     * @param {string} apDomain - The AutoProctor API domain
+     * @param {string} apEnv - The environment (development/production)
      */
-    function addReportButton(reportUrl, buttonLabel, clientId, clientSecret, testAttemptId, trackingOptions) {
+    function addReportButton(reportUrl, buttonLabel, clientId, clientSecret, testAttemptId, trackingOptions, apDomain, apEnv) {
         // Determine if session recording was enabled for this attempt
         const showSessionRecording = trackingOptions?.recordSession !== false;
         // Track if report has been loaded
@@ -625,7 +644,7 @@ define(["jquery", "core/templates"], function ($, Templates) {
                     // Load proctoring report when switching to proctoring tab (lazy load)
                     if (tabId === "proctoring-summary-tab" && !reportLoaded) {
                         reportLoaded = true;
-                        loadReport(clientId, clientSecret, testAttemptId, showSessionRecording);
+                        loadReport(clientId, clientSecret, testAttemptId, showSessionRecording, apDomain, apEnv);
 
                         // Hide loader and show content after a delay
                         setTimeout(() => {

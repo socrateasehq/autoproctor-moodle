@@ -289,6 +289,12 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
 
         $this->testAttemptId = $testAttemptId;
 
+        // Determine environment based on hostname
+        $isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
+            || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
+        $apDomain = $isLocalhost ? 'https://dev.autoproctor.co' : 'https://autoproctor.co';
+        $apEnv = $isLocalhost ? 'development' : 'production';
+
         // Include necessary scripts/styles for AutoProctor during preflight check
         $PAGE->requires->js_call_amd('quizaccess_autoproctor/proctoring', 'init', [
             'clientId' => $clientId,
@@ -296,7 +302,9 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'testAttemptId' => $testAttemptId,
             'trackingOptions' => $tracking_options,
             'cmid' => $this->quizobj->get_quiz()->cmid,
-            'lookupKey' => $this->get_lookup_key()
+            'lookupKey' => $this->get_lookup_key(),
+            'apDomain' => $apDomain,
+            'apEnv' => $apEnv
         ]);
     }
 
@@ -426,6 +434,12 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         // Get tracking options from session to determine which tabs to show
         $tracking_options = json_decode($session->tracking_options, true) ?? [];
 
+        // Determine environment based on hostname
+        $isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
+            || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
+        $apDomain = $isLocalhost ? 'https://dev.autoproctor.co' : 'https://autoproctor.co';
+        $apEnv = $isLocalhost ? 'development' : 'production';
+
         // Call JS to add the report button
         $page->requires->js_call_amd('quizaccess_autoproctor/proctoring', 'addReportButton', [
             'reportUrl' => $reportUrl,
@@ -433,7 +447,9 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'clientId' => $clientId,
             'clientSecret' => $clientSecret,
             'testAttemptId' => $session->test_attempt_id,
-            'trackingOptions' => $tracking_options
+            'trackingOptions' => $tracking_options,
+            'apDomain' => $apDomain,
+            'apEnv' => $apEnv
         ]);
     }
 
