@@ -35,7 +35,6 @@ $PAGE->requires->js_call_amd('quizaccess_autoproctor/proctoring', 'loadReport', 
     'clientId' => $clientId,
     'clientSecret' => $clientSecret,
     'testAttemptId' => $attemptid,
-    'includeSessionRecording' => true,
     'apDomain' => $apDomain,
     'apEnv' => $apEnv,
 ]);

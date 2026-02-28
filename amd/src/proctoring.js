@@ -536,22 +536,21 @@ define(["jquery", "core/templates"], function ($, Templates) {
      * @param {string} clientId
      * @param {string} clientSecret
      * @param {string} testAttemptId
-     * @param {boolean} includeSessionRecording - Whether to include session recording in the report
      * @param {string} apDomain - The AutoProctor API domain
      * @param {string} apEnv - The environment (development/production)
      * @returns {void}
      */
-    function loadReport(clientId, clientSecret, testAttemptId, includeSessionRecording = true, apDomain, apEnv) {
+    function loadReport(clientId, clientSecret, testAttemptId, apDomain, apEnv) {
         // Check if AutoProctor is already loaded and retry if not
         if (typeof window.AutoProctor === "undefined" || typeof window.AutoProctor !== "function") {
             console.log("[AP] Waiting for AutoProctor SDK (loadReport)...", typeof window.AutoProctor);
-            setTimeout(() => loadReport(clientId, clientSecret, testAttemptId, includeSessionRecording, apDomain, apEnv), 1000);
+            setTimeout(() => loadReport(clientId, clientSecret, testAttemptId, apDomain, apEnv), 1000);
             return;
         }
 
         const credentials = getCredentials(clientId, clientSecret, testAttemptId, apDomain, apEnv);
         const apInstance = new window.AutoProctor(credentials);
-        apInstance.showReport(getReportOptions(includeSessionRecording));
+        apInstance.showReport(getReportOptions());
     }
 
     /**
@@ -644,7 +643,7 @@ define(["jquery", "core/templates"], function ($, Templates) {
                     // Load proctoring report when switching to proctoring tab (lazy load)
                     if (tabId === "proctoring-summary-tab" && !reportLoaded) {
                         reportLoaded = true;
-                        loadReport(clientId, clientSecret, testAttemptId, showSessionRecording, apDomain, apEnv);
+                        loadReport(clientId, clientSecret, testAttemptId, apDomain, apEnv);
 
                         // Hide loader and show content after a delay
                         setTimeout(() => {
