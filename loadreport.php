@@ -21,12 +21,7 @@ $PAGE->set_url(new moodle_url(
 $clientId = get_config('quizaccess_autoproctor', 'client_id');
 $clientSecret = get_config('quizaccess_autoproctor', 'client_secret');
 
-// Include the scripts and styles
-echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>';
-echo '<script src="https://ap-development.s3.amazonaws.com/autoproctor.4.2.4.min.js"></script>';
-echo '<link rel="stylesheet" href="https://ap-development.s3.amazonaws.com/autoproctor.4.2.4.min.css"/>';
-
-// load autoproctor js module
+// load autoproctor js module (will be called after SDK loads)
 $PAGE->requires->js_call_amd('quizaccess_autoproctor/proctoring', 'loadReport', [
     'clientId' => $clientId,
     'clientSecret' => $clientSecret,
@@ -34,5 +29,15 @@ $PAGE->requires->js_call_amd('quizaccess_autoproctor/proctoring', 'loadReport', 
 ]);
 
 echo $OUTPUT->header();
+
+// Load dependencies
+$isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
+    || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
+$apEntryUrl = $isLocalhost
+    ? 'https://ap-development.s3.ap-south-1.amazonaws.com/ap-entry-moodle.js'
+    : 'https://cdn.autoproctor.co/ap-entry-moodle.js';
+
+echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>';
+echo '<script src="' . $apEntryUrl . '"></script>';
 echo $OUTPUT->render_from_template('quizaccess_autoproctor/autoproctor', []);
 echo $OUTPUT->footer();

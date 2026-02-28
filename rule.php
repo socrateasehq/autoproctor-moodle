@@ -278,8 +278,14 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
 
         // Include the scripts and styles
         $PAGE->requires->js(new moodle_url('https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js'), true);
-        $PAGE->requires->js(new moodle_url('https://ap-development.s3.amazonaws.com/autoproctor.4.3.0.min.js'), true);
-        $PAGE->requires->css(new moodle_url('https://ap-development.s3.amazonaws.com/autoproctor.4.3.0.min.css'));
+
+        // Load AutoProctor SDK via Moodle-specific entry script (handles AMD conflicts)
+        $isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
+            || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
+        $apEntryUrl = $isLocalhost
+            ? 'https://ap-development.s3.ap-south-1.amazonaws.com/ap-entry-moodle.js'
+            : 'https://cdn.autoproctor.co/ap-entry-moodle.js';
+        $PAGE->requires->js(new moodle_url($apEntryUrl), true);
 
         $this->testAttemptId = $testAttemptId;
 
@@ -408,8 +414,14 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
 
         // Include the AutoProctor SDK for report viewing
         $page->requires->js(new moodle_url('https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js'), true);
-        $page->requires->js(new moodle_url('https://ap-development.s3.amazonaws.com/autoproctor.4.3.0.min.js'), true);
-        $page->requires->css(new moodle_url('https://ap-development.s3.amazonaws.com/autoproctor.4.3.0.min.css'));
+
+        // Load AutoProctor SDK via Moodle-specific entry script (handles AMD conflicts)
+        $isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
+            || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
+        $apEntryUrl = $isLocalhost
+            ? 'https://ap-development.s3.ap-south-1.amazonaws.com/ap-entry-moodle.js'
+            : 'https://cdn.autoproctor.co/ap-entry-moodle.js';
+        $page->requires->js(new moodle_url($apEntryUrl), true);
 
         // Get tracking options from session to determine which tabs to show
         $tracking_options = json_decode($session->tracking_options, true) ?? [];
