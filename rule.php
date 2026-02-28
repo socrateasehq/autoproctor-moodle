@@ -38,9 +38,19 @@ if (class_exists('\mod_quiz\local\access_rule_base')) {
 
 class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
 {
+    // Environment URLs
+    private const AP_CDN_PRODUCTION = 'https://cdn.autoproctor.co/ap-entry-moodle.js';
+    private const AP_CDN_DEVELOPMENT = 'https://ap-development.s3.ap-south-1.amazonaws.com/ap-entry-moodle.js';
+    private const AP_DOMAIN_PRODUCTION = 'https://autoproctor.co';
+    private const AP_DOMAIN_DEVELOPMENT = 'https://dev.autoproctor.co';
+    private const CRYPTOJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
+
     /** @var quizaccess_autoproctor_quiz_settings_class_alias */
     protected $quizobj;
+
+    /** @var string */
     protected $testAttemptId;
+
     public function __construct($quizobj, $timenow)
     {
         parent::__construct($quizobj, $timenow);
@@ -249,11 +259,8 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         global $PAGE, $DB, $USER;
 
         // Get client credentials
-        $clientId = get_config('quizaccess_autoproctor', 'client_id');
-        $clientSecret = get_config('quizaccess_autoproctor', 'client_secret');
-
-        // Check if client credentials are set
-        if (empty($clientId) || empty($clientSecret)) {
+        $creds = self::get_credentials();
+        if (empty($creds['clientId']) || empty($creds['clientSecret'])) {
             \core\notification::error(get_string('credentials_not_set', 'quizaccess_autoproctor'));
             return;
         }
@@ -271,40 +278,27 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         if ($session) {
             // If session exists, use that test attempt ID
             $testAttemptId = $session->test_attempt_id;
-        } else {
-            // Session cannot be created in db as we don't have an attempt ID yet.
-            // This will be created in setup_attempt_page() when the attempt ID is generated.
         }
 
-        // Include the scripts and styles
-        $PAGE->requires->js(new moodle_url('https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js'), true);
+        // Get environment configuration
+        $envConfig = self::get_environment_config();
 
-        // Load AutoProctor SDK via Moodle-specific entry script (handles AMD conflicts)
-        $isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
-            || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
-        $apEntryUrl = $isLocalhost
-            ? 'https://ap-development.s3.ap-south-1.amazonaws.com/ap-entry-moodle.js'
-            : 'https://cdn.autoproctor.co/ap-entry-moodle.js';
-        $PAGE->requires->js(new moodle_url($apEntryUrl), true);
+        // Include the scripts and styles
+        $PAGE->requires->js(new moodle_url(self::CRYPTOJS_URL), true);
+        $PAGE->requires->js(new moodle_url($envConfig['apEntryUrl']), true);
 
         $this->testAttemptId = $testAttemptId;
 
-        // Determine environment based on hostname
-        $isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
-            || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
-        $apDomain = $isLocalhost ? 'https://dev.autoproctor.co' : 'https://autoproctor.co';
-        $apEnv = $isLocalhost ? 'development' : 'production';
-
         // Include necessary scripts/styles for AutoProctor during preflight check
         $PAGE->requires->js_call_amd('quizaccess_autoproctor/proctoring', 'init', [
-            'clientId' => $clientId,
-            'clientSecret' => $clientSecret,
+            'clientId' => $creds['clientId'],
+            'clientSecret' => $creds['clientSecret'],
             'testAttemptId' => $testAttemptId,
             'trackingOptions' => $tracking_options,
             'cmid' => $this->quizobj->get_quiz()->cmid,
             'lookupKey' => $this->get_lookup_key(),
-            'apDomain' => $apDomain,
-            'apEnv' => $apEnv
+            'apDomain' => $envConfig['apDomain'],
+            'apEnv' => $envConfig['apEnv']
         ]);
     }
 
@@ -323,7 +317,6 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             return $errors;
         }
 
-        echo "<script>console.log(' [ap] attempt id: " . $attemptid . "');</script>";
         if (empty($data['autoproctor_consent'])) {
             $errors['autoproctor_consent'] = get_string('mustacceptproctoring', 'quizaccess_autoproctor');
         }
@@ -375,6 +368,43 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
     }
 
     /**
+     * Get environment configuration based on hostname.
+     * Returns URLs and settings for development vs production environment.
+     *
+     * @return array [
+     *     'isLocalhost' => bool,
+     *     'apDomain' => string,
+     *     'apEnv' => string,
+     *     'apEntryUrl' => string
+     * ]
+     */
+    private static function get_environment_config(): array
+    {
+        $isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
+            || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
+
+        return [
+            'isLocalhost' => $isLocalhost,
+            'apDomain' => $isLocalhost ? self::AP_DOMAIN_DEVELOPMENT : self::AP_DOMAIN_PRODUCTION,
+            'apEnv' => $isLocalhost ? 'development' : 'production',
+            'apEntryUrl' => $isLocalhost ? self::AP_CDN_DEVELOPMENT : self::AP_CDN_PRODUCTION
+        ];
+    }
+
+    /**
+     * Get AutoProctor API credentials from plugin settings.
+     *
+     * @return array ['clientId' => string, 'clientSecret' => string]
+     */
+    private static function get_credentials(): array
+    {
+        return [
+            'clientId' => get_config('quizaccess_autoproctor', 'client_id'),
+            'clientSecret' => get_config('quizaccess_autoproctor', 'client_secret')
+        ];
+    }
+
+    /**
      * Sets up the attempt (review or summary) page with any special extra
      * properties required by this rule.
      *
@@ -408,12 +438,13 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         }
 
         // Get credentials
-        $clientId = get_config('quizaccess_autoproctor', 'client_id');
-        $clientSecret = get_config('quizaccess_autoproctor', 'client_secret');
-
-        if (empty($clientId) || empty($clientSecret)) {
+        $creds = self::get_credentials();
+        if (empty($creds['clientId']) || empty($creds['clientSecret'])) {
             return;
         }
+
+        // Get environment configuration
+        $envConfig = self::get_environment_config();
 
         // Build the report URL
         $reportBaseUrl = get_string('viewattemptreportlink', 'quizaccess_autoproctor');
@@ -421,35 +452,22 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         $buttonLabel = get_string('viewattemptreport', 'quizaccess_autoproctor');
 
         // Include the AutoProctor SDK for report viewing
-        $page->requires->js(new moodle_url('https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js'), true);
-
-        // Load AutoProctor SDK via Moodle-specific entry script (handles AMD conflicts)
-        $isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
-            || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
-        $apEntryUrl = $isLocalhost
-            ? 'https://ap-development.s3.ap-south-1.amazonaws.com/ap-entry-moodle.js'
-            : 'https://cdn.autoproctor.co/ap-entry-moodle.js';
-        $page->requires->js(new moodle_url($apEntryUrl), true);
+        $page->requires->js(new moodle_url(self::CRYPTOJS_URL), true);
+        $page->requires->js(new moodle_url($envConfig['apEntryUrl']), true);
 
         // Get tracking options from session to determine which tabs to show
         $tracking_options = json_decode($session->tracking_options, true) ?? [];
-
-        // Determine environment based on hostname
-        $isLocalhost = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'])
-            || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost:') === 0;
-        $apDomain = $isLocalhost ? 'https://dev.autoproctor.co' : 'https://autoproctor.co';
-        $apEnv = $isLocalhost ? 'development' : 'production';
 
         // Call JS to add the report button
         $page->requires->js_call_amd('quizaccess_autoproctor/proctoring', 'addReportButton', [
             'reportUrl' => $reportUrl,
             'buttonLabel' => $buttonLabel,
-            'clientId' => $clientId,
-            'clientSecret' => $clientSecret,
+            'clientId' => $creds['clientId'],
+            'clientSecret' => $creds['clientSecret'],
             'testAttemptId' => $session->test_attempt_id,
             'trackingOptions' => $tracking_options,
-            'apDomain' => $apDomain,
-            'apEnv' => $apEnv
+            'apDomain' => $envConfig['apDomain'],
+            'apEnv' => $envConfig['apEnv']
         ]);
     }
 

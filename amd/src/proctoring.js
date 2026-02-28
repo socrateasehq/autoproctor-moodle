@@ -1,9 +1,22 @@
 define(["jquery", "core/templates"], function ($, Templates) {
+    // Constants
     const IFRAME_NAME = "ap-iframe";
     const MOODLE_PREFLIGHT_FORM_ID = "mod_quiz_preflight_form";
     const MOODLE_PAGE_CONTENT_ID = "page-content";
     const MOODLE_FINISH_FORM_SUBMIT_BTN = "#frm-finishattempt button[type='submit']";
     const MOODLE_FINISH_MODAL_SUBMIT_BTN = "div.modal-footer > button.btn.btn-primary";
+
+    // Configuration
+    const CONFIG = {
+        SDK_MAX_RETRIES: 10,
+        SDK_RETRY_DELAY_MS: 1000,
+        SESSION_MAX_RETRIES: 5,
+        SESSION_RETRY_DELAY_MS: 1000,
+        ELEMENT_WAIT_INTERVAL_MS: 500,
+        ELEMENT_WAIT_TIMEOUT_MS: 30000,
+        LOADER_CHECK_INTERVAL_MS: 500,
+        LOADER_CHECK_TIMEOUT_MS: 60000
+    };
 
     // Cached variables
     let _apInstance;
@@ -144,16 +157,26 @@ define(["jquery", "core/templates"], function ($, Templates) {
     };
 
     /**
-     * Hides the loader if the progress is completed
+     * Hides the loader if the progress is completed.
+     * Has a timeout to prevent infinite polling.
+     * @param {number} startTime - Timestamp when polling started (for timeout tracking)
      */
-    const hideLoaderIfProgressCompleted = () => {
+    const hideLoaderIfProgressCompleted = (startTime = Date.now()) => {
         if (isApProgressCompleted) {
-            $apIframeLoader.remove();
-        } else {
-            setTimeout(() => {
-                hideLoaderIfProgressCompleted();
-            }, 500);
+            $apIframeLoader?.remove();
+            return;
         }
+
+        // Check for timeout
+        if (Date.now() - startTime > CONFIG.LOADER_CHECK_TIMEOUT_MS) {
+            console.warn(`[AP] Loader check timed out after ${CONFIG.LOADER_CHECK_TIMEOUT_MS}ms`);
+            $apIframeLoader?.remove();
+            return;
+        }
+
+        setTimeout(() => {
+            hideLoaderIfProgressCompleted(startTime);
+        }, CONFIG.LOADER_CHECK_INTERVAL_MS);
     };
 
     /**
@@ -228,37 +251,57 @@ define(["jquery", "core/templates"], function ($, Templates) {
     };
 
     /**
-     * Creates a new AP session and if it fails, it will retry up to 5 times
+     * Creates a new AP session and if it fails, it will retry up to CONFIG.SESSION_MAX_RETRIES times
      * @param {string} url
      * @param {string} testAttemptId
      * @param {object} trackingOptions
      * @param {number} retriesLeft
      */
-    const createNewApSession = (url, testAttemptId, trackingOptions, retriesLeft = 5) => {
-        try {
-            const params = new URL(url).searchParams;
-            const attemptId = params.get("attempt");
-            const sesskey = M.cfg?.sesskey || document.querySelector('input[name="sesskey"]')?.value;
+    const createNewApSession = (url, testAttemptId, trackingOptions, retriesLeft = CONFIG.SESSION_MAX_RETRIES) => {
+        const params = new URL(url).searchParams;
+        const attemptId = params.get("attempt");
+        const sesskey = M.cfg?.sesskey || document.querySelector('input[name="sesskey"]')?.value;
 
-            fetch(M.cfg.wwwroot + "/mod/quiz/accessrule/autoproctor/create_session.php", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                    sesskey: sesskey,
-                    attemptid: attemptId,
-                    test_attempt_id: testAttemptId,
-                    tracking_options: JSON.stringify(trackingOptions),
-                }),
-            });
-        } catch (error) {
-            if (retriesLeft > 0) {
-                setTimeout(() => createNewApSession(url, testAttemptId, trackingOptions, retriesLeft - 1), 1000);
-            } else {
-                throw error;
-            }
+        if (!attemptId || !sesskey) {
+            console.error("[AP] Missing attemptId or sesskey for session creation");
+            return;
         }
+
+        fetch(M.cfg.wwwroot + "/mod/quiz/accessrule/autoproctor/create_session.php", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                sesskey: sesskey,
+                attemptid: attemptId,
+                test_attempt_id: testAttemptId,
+                tracking_options: JSON.stringify(trackingOptions),
+            }),
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    console.error("[AP] Session creation failed:", data.error);
+                }
+            })
+            .catch(error => {
+                console.error("[AP] Session creation error:", error);
+                if (retriesLeft > 0) {
+                    console.log(`[AP] Retrying session creation (${retriesLeft} attempts left)...`);
+                    setTimeout(
+                        () => createNewApSession(url, testAttemptId, trackingOptions, retriesLeft - 1),
+                        CONFIG.SESSION_RETRY_DELAY_MS
+                    );
+                } else {
+                    console.error("[AP] Session creation failed after all retries");
+                }
+            });
     };
 
     /**
@@ -455,21 +498,37 @@ define(["jquery", "core/templates"], function ($, Templates) {
 
     /**
      * Waits for an element to appear in the document or iframe (if isInsideIframe is true)
-     * and then calls a callback with the element.
+     * and then calls a callback with the element. Times out after CONFIG.ELEMENT_WAIT_TIMEOUT_MS.
      * @param {string} selector - The CSS selector to search for
      * @param {Function} callback - Function to call with the found element as parameter
      * @param {boolean} isInsideIframe - Whether the element is inside the iframe
      */
     const waitForElement = (selector, callback, isInsideIframe = false) => {
+        const startTime = Date.now();
+
         const elementIntervalId = setInterval(() => {
-            const targetElement = isInsideIframe
-                ? document.getElementById(IFRAME_NAME)?.contentWindow?.document.querySelector(selector)
-                : document.querySelector(selector);
-            if (targetElement) {
+            try {
+                const targetElement = isInsideIframe
+                    ? document.getElementById(IFRAME_NAME)?.contentWindow?.document.querySelector(selector)
+                    : document.querySelector(selector);
+
+                if (targetElement) {
+                    clearInterval(elementIntervalId);
+                    callback(targetElement);
+                    return;
+                }
+
+                // Check for timeout
+                if (Date.now() - startTime > CONFIG.ELEMENT_WAIT_TIMEOUT_MS) {
+                    clearInterval(elementIntervalId);
+                    console.warn(`[AP] Element "${selector}" not found after ${CONFIG.ELEMENT_WAIT_TIMEOUT_MS}ms`);
+                }
+            } catch (err) {
+                // Handle cross-origin errors when accessing iframe content
                 clearInterval(elementIntervalId);
-                callback(targetElement);
+                console.error(`[AP] Error waiting for element "${selector}":`, err);
             }
-        }, 500);
+        }, CONFIG.ELEMENT_WAIT_INTERVAL_MS);
     };
 
     /**
@@ -487,6 +546,9 @@ define(["jquery", "core/templates"], function ($, Templates) {
      * @param {string} apEnv - The environment (development/production)
      * @returns {Promise<void>}
      */
+    // Track SDK loading retries
+    let _sdkRetryCount = 0;
+
     async function initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions, cmid, lookupKey, apDomain, apEnv) {
         // Don't initialize if we're inside an iframe (prevents double initialization on redirect pages)
         if (window !== window.top) {
@@ -496,10 +558,26 @@ define(["jquery", "core/templates"], function ($, Templates) {
         // Check if AutoProctor is already loaded and retry if not
         // Also verify it's actually a constructor (not just an object from failed AMD load)
         if (typeof window.AutoProctor === "undefined" || typeof window.AutoProctor !== "function") {
-            console.log("[AP] Waiting for AutoProctor SDK...", typeof window.AutoProctor, window.AutoProctor);
+            _sdkRetryCount++;
+
+            if (_sdkRetryCount > CONFIG.SDK_MAX_RETRIES) {
+                console.error(`[AP] AutoProctor SDK failed to load after ${CONFIG.SDK_MAX_RETRIES} attempts`);
+                // Show error to user
+                const errorDiv = document.createElement("div");
+                errorDiv.className = "alert alert-danger";
+                errorDiv.style.cssText = "margin: 20px; padding: 15px;";
+                errorDiv.innerHTML = `
+                    <strong>AutoProctor Error:</strong> Failed to load AutoProctor SDK.
+                    Please check your internet connection and <a href="javascript:location.reload()">refresh the page</a>.
+                `;
+                document.body.prepend(errorDiv);
+                return;
+            }
+
+            console.log(`[AP] Waiting for AutoProctor SDK (attempt ${_sdkRetryCount}/${CONFIG.SDK_MAX_RETRIES})...`);
             setTimeout(
                 () => initAutoProctor(clientId, clientSecret, testAttemptId, trackingOptions, cmid, lookupKey, apDomain, apEnv),
-                1000
+                CONFIG.SDK_RETRY_DELAY_MS
             );
             return;
         }
@@ -540,11 +618,30 @@ define(["jquery", "core/templates"], function ($, Templates) {
      * @param {string} apEnv - The environment (development/production)
      * @returns {void}
      */
+    // Track SDK loading retries for loadReport
+    let _reportSdkRetryCount = 0;
+
     function loadReport(clientId, clientSecret, testAttemptId, apDomain, apEnv) {
         // Check if AutoProctor is already loaded and retry if not
         if (typeof window.AutoProctor === "undefined" || typeof window.AutoProctor !== "function") {
-            console.log("[AP] Waiting for AutoProctor SDK (loadReport)...", typeof window.AutoProctor);
-            setTimeout(() => loadReport(clientId, clientSecret, testAttemptId, apDomain, apEnv), 1000);
+            _reportSdkRetryCount++;
+
+            if (_reportSdkRetryCount > CONFIG.SDK_MAX_RETRIES) {
+                console.error(`[AP] AutoProctor SDK failed to load for report after ${CONFIG.SDK_MAX_RETRIES} attempts`);
+                const loaderEl = document.getElementById("ap-report-loader");
+                if (loaderEl) {
+                    loaderEl.innerHTML = `
+                        <div class="alert alert-danger">
+                            Failed to load AutoProctor SDK.
+                            <a href="javascript:location.reload()">Refresh page</a> to try again.
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            console.log(`[AP] Waiting for AutoProctor SDK for report (attempt ${_reportSdkRetryCount}/${CONFIG.SDK_MAX_RETRIES})...`);
+            setTimeout(() => loadReport(clientId, clientSecret, testAttemptId, apDomain, apEnv), CONFIG.SDK_RETRY_DELAY_MS);
             return;
         }
 
