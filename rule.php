@@ -102,6 +102,7 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
                 'numHumans' => get_string('tracking_numHumans', 'quizaccess_autoproctor'),
                 'tabSwitch' => get_string('tracking_tabSwitch', 'quizaccess_autoproctor'),
                 'disableCopyPaste' => get_string('tracking_disableCopyPaste', 'quizaccess_autoproctor'),
+                'multiSessionAttempt' => get_string('tracking_multiSessionAttempt', 'quizaccess_autoproctor'),
             ],
             'camera' => [
                 'testTakerPhoto' => get_string('tracking_testTakerPhoto', 'quizaccess_autoproctor'),
@@ -115,10 +116,9 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
                 'forceFullScreen' => get_string('tracking_forceFullScreen', 'quizaccess_autoproctor'),
                 'forceDesktop' => get_string('tracking_forceDesktop', 'quizaccess_autoproctor'),
             ],
-            'security' => [
-                'multiSessionAttempt' => get_string('tracking_multiSessionAttempt', 'quizaccess_autoproctor'),
-                'auxiliaryDevice' => get_string('tracking_auxiliaryDevice', 'quizaccess_autoproctor'),
-            ],
+            // 'security' => [
+            //     'auxiliaryDevice' => get_string('tracking_auxiliaryDevice', 'quizaccess_autoproctor'), // TODO: Enable when ready
+            // ],
             'idcard' => [
                 'idCardVerification_face' => get_string('tracking_idCardVerification_face', 'quizaccess_autoproctor'),
                 'idCardVerification_name' => get_string('tracking_idCardVerification_name', 'quizaccess_autoproctor'),
@@ -132,6 +132,7 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'numHumans' => 1,
             'tabSwitch' => 1,
             'disableCopyPaste' => 0,
+            'multiSessionAttempt' => 0,
             'testTakerPhoto' => 0,
             'photosAtRandom' => 1,
             'impersonation' => 0,
@@ -140,8 +141,7 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'detectMultipleScreens' => 1,
             'forceFullScreen' => 0,
             'forceDesktop' => 0,
-            'multiSessionAttempt' => 0,
-            'auxiliaryDevice' => 0,
+            // 'auxiliaryDevice' => 0, // TODO: Enable when ready
             'idCardVerification_face' => 0,
             'idCardVerification_name' => 0,
             'idCardVerification_expiryDate' => 0,
@@ -211,7 +211,7 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'forceFullScreen' => false,
             'forceDesktop' => false,
             'multiSessionAttempt' => false,
-            'auxiliaryDevice' => false,
+            // 'auxiliaryDevice' => false, // TODO: Enable when ready
             'impersonation' => false,
         ];
 
