@@ -43,7 +43,7 @@ $string['tracking_group_camera'] = 'Camera Settings';
 $string['tracking_group_activity'] = 'Activity Tracking';
 $string['tracking_group_screen'] = 'Screen Tracking';
 $string['tracking_group_security'] = 'Advanced Security';
-$string['tracking_group_idcard'] = 'ID Card Verification (costs extra credits)';
+$string['tracking_group_idcard'] = 'ID Card Verification (<a href="https://www.autoproctor.co/pricing/" target="_blank">costs extra credits</a>)';
 
 // Proctoring options - labels
 $string['tracking_audio'] = 'Audio Detection';

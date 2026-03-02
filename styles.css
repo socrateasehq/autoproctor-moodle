@@ -23,3 +23,14 @@
     flex: 0 0 50%;
     max-width: 50%;
 }
+
+/* Make section headers (Camera Settings, Screen Tracking, etc.) span full width and align left */
+#id_autoproctorsettings .femptylabel .col-md-3 {
+    display: none !important;
+}
+
+#id_autoproctorsettings .femptylabel .col-md-9 {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding-left: 0 !important;
+}
