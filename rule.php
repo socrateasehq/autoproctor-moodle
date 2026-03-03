@@ -350,6 +350,12 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         $testAttemptId = optional_param('test-attempt-id', uniqid('ap_'), PARAM_RAW);
         $tracking_options = self::get_ap_settings($this->quizobj->get_quiz()->id)->tracking_options;
 
+        // Build user details to pass to AutoProctor
+        $userdetails = [
+            'name' => fullname($USER),
+            'email' => $USER->email ?? '',
+        ];
+
         if ($session) {
             // If session exists, use that test attempt ID
             $testAttemptId = $session->test_attempt_id;
@@ -376,7 +382,8 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'cmid' => $this->quizobj->get_quiz()->cmid,
             'lookupKey' => $this->get_lookup_key(),
             'apDomain' => $envConfig['apDomain'],
-            'apEnv' => $envConfig['apEnv']
+            'apEnv' => $envConfig['apEnv'],
+            'userDetails' => $userdetails,
         ]);
     }
 
@@ -562,7 +569,7 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'testAttemptId' => $session->test_attempt_id,
             'trackingOptions' => $tracking_options,
             'apDomain' => $envConfig['apDomain'],
-            'apEnv' => $envConfig['apEnv']
+            'apEnv' => $envConfig['apEnv'],
         ]);
     }
 
