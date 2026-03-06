@@ -43,8 +43,6 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
     private const AP_CDN_DEVELOPMENT = 'https://ap-development.s3.ap-south-1.amazonaws.com/ap-entry-moodle.js';
     private const AP_DOMAIN_PRODUCTION = 'https://www.autoproctor.co';
     private const AP_DOMAIN_DEVELOPMENT = 'https://dev.autoproctor.co';
-    // CryptoJS is required by the AutoProctor SDK (not for our hashing - that's done server-side)
-    private const CRYPTOJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
 
     /** @var quizaccess_autoproctor_quiz_settings_class_alias */
     protected $quizobj;
@@ -359,8 +357,7 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         // Get environment configuration
         $envConfig = self::get_environment_config();
 
-        // Include CryptoJS (required by AutoProctor SDK) and the SDK itself
-        $PAGE->requires->js(new moodle_url(self::CRYPTOJS_URL), true);
+        // Include AutoProctor SDK
         $PAGE->requires->js(new moodle_url($envConfig['apEntryUrl']), true);
 
         $this->testAttemptId = $testAttemptId;
@@ -545,8 +542,7 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         $reportUrl = $reportBaseUrl . $session->test_attempt_id . '/';
         $buttonLabel = get_string('viewattemptreport', 'quizaccess_autoproctor');
 
-        // Include CryptoJS (required by AutoProctor SDK) and the SDK itself
-        $page->requires->js(new moodle_url(self::CRYPTOJS_URL), true);
+        // Include AutoProctor SDK
         $page->requires->js(new moodle_url($envConfig['apEntryUrl']), true);
 
         // Get tracking options from session to determine which tabs to show
