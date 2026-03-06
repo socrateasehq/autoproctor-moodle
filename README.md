@@ -55,7 +55,7 @@ AutoProctor is a quiz access rule plugin that integrates automated proctoring in
 3. Optionally enable "Enable AutoProctor by default" for all new quizzes
 4. Save changes
 
-### Step 2: Enable on a Quiz
+### Step 3: Enable on a Quiz
 
 1. Edit any quiz and expand the **AutoProctor Settings** section
 2. Set "Turn AutoProctor On" to **Yes**
@@ -122,13 +122,13 @@ AutoProctor collects:
 - Tab switch events
 - Multiple person detection events
 
-All data is processed by AutoProctor's servers. Review [AutoProctor's Privacy Policy](https://autoproctor.co/privacy) for details on data handling and retention.
+All data is processed by AutoProctor's servers. Review [AutoProctor's Privacy Policy](https://www.autoproctor.co/privacy-policy/) for details on data handling and retention.
 
 ## Support
 
-- **Documentation**: [AutoProctor Help Center](https://help.autoproctor.co/)
+- **Documentation**: [https://www.autoproctor.co/developers/docs](https://www.autoproctor.co/developers/docs)
 - **Issues**: Report bugs on the plugin repository
-- **Contact**: support@autoproctor.co
+- **Contact**: help@autoproctor.co
 
 ## Development
 
