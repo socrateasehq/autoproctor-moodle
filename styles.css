@@ -34,3 +34,14 @@
     max-width: 100% !important;
     padding-left: 0 !important;
 }
+
+/* Permissions list in preflight form */
+.autoproctor-permissions-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.autoproctor-permissions-list li {
+    padding: 2px 0;
+}

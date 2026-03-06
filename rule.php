@@ -303,6 +303,13 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
         MoodleQuickForm $mform,
         $attemptid
     ) {
+        global $PAGE, $DB, $USER;
+
+        // Get tracking options to determine which permissions are needed
+        $tracking_options = self::get_ap_settings($this->quizobj->get_quiz()->id)->tracking_options;
+
+        // Build dynamic permissions list based on tracking options
+        $permissions_html = $this->build_permissions_list($tracking_options);
 
         // Add consent checkbox
         $mform->addElement(
@@ -315,7 +322,7 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'static',
             'autoproctor_permissions',
             '',
-            get_string('proctoringpermissions', 'quizaccess_autoproctor')
+            $permissions_html
         );
         $mform->addElement(
             'checkbox',
@@ -323,9 +330,6 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             get_string('proctoringconsent', 'quizaccess_autoproctor')
         );
         $mform->addRule('autoproctor_consent', null, 'required', null, 'client');
-
-        // Start proctoring session
-        global $PAGE, $DB, $USER;
 
         // Get client credentials
         $creds = self::get_credentials();
@@ -494,6 +498,50 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
     {
         $hash = hash_hmac('sha256', $testAttemptId, $clientSecret, true);
         return base64_encode($hash);
+    }
+
+    /**
+     * Build the permissions list HTML based on which tracking options are enabled.
+     *
+     * @param array $tracking_options The tracking options for this quiz
+     * @return string HTML for the permissions list
+     */
+    private function build_permissions_list(array $tracking_options): string
+    {
+        $permissions = [];
+
+        // Screen is needed for: recordSession, captureSwitchedTab, detectMultipleScreens, forceFullScreen
+        $needs_screen = !empty($tracking_options['recordSession'])
+            || !empty($tracking_options['captureSwitchedTab'])
+            || !empty($tracking_options['detectMultipleScreens'])
+            || !empty($tracking_options['forceFullScreen']);
+
+        // Microphone is needed for: audio
+        $needs_microphone = !empty($tracking_options['audio']);
+
+        // Camera is needed for: testTakerPhoto, photosAtRandom, numHumans, impersonation, idCardVerification
+        $needs_camera = !empty($tracking_options['testTakerPhoto'])
+            || !empty($tracking_options['photosAtRandom'])
+            || !empty($tracking_options['numHumans'])
+            || !empty($tracking_options['impersonation'])
+            || !empty($tracking_options['idCardVerification']);
+
+        $counter = 1;
+        if ($needs_screen) {
+            $permissions[] = '<li>' . $counter++ . '. ' . get_string('permission_screen', 'quizaccess_autoproctor') . '</li>';
+        }
+        if ($needs_microphone) {
+            $permissions[] = '<li>' . $counter++ . '. ' . get_string('permission_microphone', 'quizaccess_autoproctor') . '</li>';
+        }
+        if ($needs_camera) {
+            $permissions[] = '<li>' . $counter++ . '. ' . get_string('permission_camera', 'quizaccess_autoproctor') . '</li>';
+        }
+
+        if (empty($permissions)) {
+            return '';
+        }
+
+        return '<ul class="autoproctor-permissions-list">' . implode('', $permissions) . '</ul>';
     }
 
     /**

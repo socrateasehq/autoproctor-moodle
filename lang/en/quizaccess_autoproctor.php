@@ -46,9 +46,11 @@ $string['enable_by_default_desc'] = 'If enabled, AutoProctor will be enabled for
 // Help and permissions
 $string['autoproctor_desc_headsup'] = 'This quiz is using AutoProctor to proctor the test. You can only attempt the quiz when AutoProctor is running.';
 $string['requireautoproctor_help'] = 'If enabled, students can only attempt the quiz when AutoProctor is running';
-$string['proctoringheader'] = 'You will need to grant access to some or all of the following to attempt this quiz:';
+$string['proctoringheader'] = 'You will need to grant access to the following to attempt this quiz:';
 $string['proctoringconsent'] = 'I consent to granting access to the above permissions';
-$string['proctoringpermissions'] = '<ul style="display: block; list-style-type: none; padding-left: 0; margin: auto;"><li>1. Screen</li><li>2. Microphone</li><li>3. Camera</ul>';
+$string['permission_screen'] = 'Screen';
+$string['permission_microphone'] = 'Microphone';
+$string['permission_camera'] = 'Camera';
 
 // Results and reporting
 $string['autoproctorresults'] = 'View AutoProctor Results';
