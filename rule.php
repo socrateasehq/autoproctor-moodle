@@ -116,9 +116,6 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
                 'forceFullScreen' => get_string('tracking_forceFullScreen', 'quizaccess_autoproctor'),
                 'forceDesktop' => get_string('tracking_forceDesktop', 'quizaccess_autoproctor'),
             ],
-            // 'security' => [
-            //     'auxiliaryDevice' => get_string('tracking_auxiliaryDevice', 'quizaccess_autoproctor'), // TODO: Enable when ready
-            // ],
             'idcard' => [
                 'idCardVerification_face' => get_string('tracking_idCardVerification_face', 'quizaccess_autoproctor'),
                 'idCardVerification_name' => get_string('tracking_idCardVerification_name', 'quizaccess_autoproctor'),
@@ -141,7 +138,6 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'detectMultipleScreens' => 1,
             'forceFullScreen' => 0,
             'forceDesktop' => 0,
-            // 'auxiliaryDevice' => 0, // TODO: Enable when ready
             'idCardVerification_face' => 0,
             'idCardVerification_name' => 0,
             'idCardVerification_expiryDate' => 0,
@@ -211,7 +207,6 @@ class quizaccess_autoproctor extends quizaccess_autoproctor_parent_class_alias
             'forceFullScreen' => false,
             'forceDesktop' => false,
             'multiSessionAttempt' => false,
-            // 'auxiliaryDevice' => false, // TODO: Enable when ready
             'impersonation' => false,
         ];
 
