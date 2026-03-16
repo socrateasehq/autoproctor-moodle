@@ -293,7 +293,7 @@ define(["jquery", "core/templates", "core/ajax"], function($, Templates, Ajax) {
                     // Session creation failed.
                 }
             })
-            .catch(error => {
+            .catch(() => {
                 // Session creation error occurred.
                 if (retriesLeft > 0) {
                     // Retrying session creation.
@@ -689,7 +689,8 @@ define(["jquery", "core/templates", "core/ajax"], function($, Templates, Ajax) {
                 // Show error to user and keep buttons disabled
                 const errorDiv = document.createElement("div");
                 errorDiv.className = "alert alert-danger";
-                errorDiv.style.cssText = "position: fixed; top: 70px; left: 0; right: 0; margin: 0 20px; padding: 15px; z-index: 9999;";
+                errorDiv.style.cssText =
+                    "position: fixed; top: 70px; left: 0; right: 0; margin: 0 20px; padding: 15px; z-index: 9999;";
                 const textNode = document.createTextNode("Unable to start proctoring. Please ");
                 const refreshLink = document.createElement("a");
                 refreshLink.href = "#";
@@ -711,10 +712,12 @@ define(["jquery", "core/templates", "core/ajax"], function($, Templates, Ajax) {
             }
 
             // Waiting for AutoProctor SDK.
-            setTimeout(
-                () => initAutoProctor(clientId, hashedTestAttemptId, testAttemptId, trackingOptions, cmid, lookupKey, apDomain, apEnv, userDetails),
-                CONFIG.SDK_RETRY_DELAY_MS
-            );
+            setTimeout(() => {
+                initAutoProctor(
+                    clientId, hashedTestAttemptId, testAttemptId, trackingOptions,
+                    cmid, lookupKey, apDomain, apEnv, userDetails
+                );
+            }, CONFIG.SDK_RETRY_DELAY_MS);
             return;
         }
 
@@ -760,9 +763,20 @@ define(["jquery", "core/templates", "core/ajax"], function($, Templates, Ajax) {
      * @param {{name: string, email: string}} [userDetails] - Optional user details for the report
      * @returns {void}
      */
-    // Track SDK loading retries for loadReport
+    // Track SDK loading retries for loadReport.
     let _reportSdkRetryCount = 0;
 
+    /**
+     * Load the AutoProctor report for a specific test attempt.
+     *
+     * @param {string} clientId - The AutoProctor client ID
+     * @param {string} hashedTestAttemptId - Pre-computed HMAC-SHA256 hash (base64 encoded)
+     * @param {string} testAttemptId - The test attempt identifier
+     * @param {string} apDomain - The AutoProctor API domain
+     * @param {string} apEnv - The environment (development/production)
+     * @param {{name: string, email: string}} [userDetails] - Optional user details for the report
+     * @returns {void}
+     */
     function loadReport(
         clientId,
         hashedTestAttemptId,
