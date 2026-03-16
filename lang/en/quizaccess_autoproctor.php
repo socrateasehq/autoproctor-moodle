@@ -123,6 +123,12 @@ $string['privacy:externaldatanote'] = 'Additional proctoring data (webcam photos
 // Error messages
 $string['invalidaccess'] = 'Invalid or missing proctoring session. Please start your quiz attempt again.';
 $string['mustacceptproctoring'] = 'You must accept the proctoring requirements to attempt this quiz.';
+$string['error_methodnotallowed'] = 'Method not allowed';
+$string['error_invalidtrackingoptions'] = 'Invalid tracking options format';
+$string['error_invalidattempt'] = 'Invalid attempt';
+$string['error_accessdenied'] = 'Access denied';
+$string['error_database'] = 'Database error occurred';
+$string['error_general'] = 'An error occurred';
 
 // Page titles
 $string['reportpagetitle'] = 'AutoProctor Report';

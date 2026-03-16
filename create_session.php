@@ -35,7 +35,7 @@ header("Content-Type: application/json; charset=UTF-8");
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
+    echo json_encode(['success' => false, 'error' => get_string('error_methodnotallowed', 'quizaccess_autoproctor')]);
     exit;
 }
 
@@ -48,7 +48,7 @@ $tracking_options_raw = required_param('tracking_options', PARAM_RAW);
 $tracking_options = json_decode($tracking_options_raw, true);
 if (json_last_error() !== JSON_ERROR_NONE) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid tracking options format']);
+    echo json_encode(['success' => false, 'error' => get_string('error_invalidtrackingoptions', 'quizaccess_autoproctor')]);
     exit;
 }
 
@@ -57,14 +57,14 @@ try {
     $attempt = $DB->get_record('quiz_attempts', ['id' => $attemptid], '*');
     if (!$attempt) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Invalid attempt']);
+        echo json_encode(['success' => false, 'error' => get_string('error_invalidattempt', 'quizaccess_autoproctor')]);
         exit;
     }
 
     // Security: Verify the current user owns this attempt
     if ($attempt->userid != $USER->id) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Access denied']);
+        echo json_encode(['success' => false, 'error' => get_string('error_accessdenied', 'quizaccess_autoproctor')]);
         exit;
     }
 
@@ -94,11 +94,11 @@ try {
 } catch (dml_exception $e) {
     // Database errors - don't expose details
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Database error occurred']);
+    echo json_encode(['success' => false, 'error' => get_string('error_database', 'quizaccess_autoproctor')]);
     error_log('[AutoProctor] Session creation database error: ' . $e->getMessage());
 
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'An error occurred']);
+    echo json_encode(['success' => false, 'error' => get_string('error_general', 'quizaccess_autoproctor')]);
     error_log('[AutoProctor] Session creation error: ' . $e->getMessage());
 }
