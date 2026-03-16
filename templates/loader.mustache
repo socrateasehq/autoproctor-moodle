@@ -90,21 +90,21 @@
                ></div>
          </div>
          <div id="pre-loader-text" style="font-size: large; max-width: 100vw; padding: 4px; text-align: center;">
-            Setting Up AutoProctor. If this process is very slow, it means you need better internet connectivity.
+            {{#str}}loader_setup, quizaccess_autoproctor{{/str}}
          </div>
          <div
             id="ap-progress-text"
             style="font-size: large; max-width: 100vw; padding: 4px; text-align: center; display: none;"
             >
-            Please wait for up to a minute for the system to be set up. If it still doesn't load,
+            {{#str}}loader_wait, quizaccess_autoproctor{{/str}}
             <a
                class="aptw-text-blue-600 hover:aptw-underline"
                href="https://help.autoproctor.co/instructions-for-taking-a-proctored-test/"
                target="_blank"
                >
-            click here
+            {{#str}}loader_clickhere, quizaccess_autoproctor{{/str}}
             </a>
-            for some steps you can follow.
+            {{#str}}loader_followsteps, quizaccess_autoproctor{{/str}}
          </div>
       </div>
    </div>

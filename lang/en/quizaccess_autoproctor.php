@@ -132,3 +132,11 @@ $string['error_general'] = 'An error occurred';
 
 // Page titles
 $string['reportpagetitle'] = 'AutoProctor Report';
+
+// Template strings
+$string['report_title'] = 'AutoProctor';
+$string['report_welcome'] = 'Welcome to the AutoProctor Plugin! AutoProctor is an automated tool which ensures that users do not cheat on exams while taking online exams. It tracks their environment and activities using their camera, mic and screen they are sharing. Based on these violations, it calculates a Trust Score and also generates a report of the violations.';
+$string['loader_setup'] = 'Setting Up AutoProctor. If this process is very slow, it means you need better internet connectivity.';
+$string['loader_wait'] = 'Please wait for up to a minute for the system to be set up. If it still doesn\'t load,';
+$string['loader_clickhere'] = 'click here';
+$string['loader_followsteps'] = 'for some steps you can follow.';
