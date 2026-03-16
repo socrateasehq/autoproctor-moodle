@@ -24,7 +24,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version = 2026030502;
+$plugin->version = 2026030504;
 $plugin->requires = 2022112800;
 $plugin->component = 'quizaccess_autoproctor';
 $plugin->maturity = MATURITY_BETA;
