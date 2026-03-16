@@ -121,6 +121,7 @@ $string['privacy:metadata:autoproctor_external:tracking_options'] = 'Configurati
 $string['privacy:externaldatanote'] = 'Additional proctoring data (webcam photos, audio, screen recordings) is stored on external AutoProctor servers and must be requested directly from AutoProctor.';
 
 // Error messages
+$string['invalidaccess'] = 'Invalid or missing proctoring session. Please start your quiz attempt again.';
 $string['mustacceptproctoring'] = 'You must accept the proctoring requirements to attempt this quiz.';
 
 // Page titles
