@@ -1,4 +1,27 @@
-define(["jquery", "core/templates"], function ($, Templates) {
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * AutoProctor proctoring module for quiz access.
+ *
+ * @module     quizaccess_autoproctor/proctoring
+ * @package    quizaccess_autoproctor
+ * @copyright  2024 AutoProctor
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+define(["jquery", "core/templates", "core/ajax"], function ($, Templates, Ajax) {
     // Constants
     const IFRAME_NAME = "ap-iframe";
     const MOODLE_PREFLIGHT_FORM_ID = "mod_quiz_preflight_form";
@@ -252,31 +275,20 @@ define(["jquery", "core/templates"], function ($, Templates) {
     const createNewApSession = (url, testAttemptId, trackingOptions, retriesLeft = CONFIG.SESSION_MAX_RETRIES) => {
         const params = new URL(url).searchParams;
         const attemptId = params.get("attempt");
-        const sesskey = M.cfg?.sesskey || document.querySelector('input[name="sesskey"]')?.value;
 
-        if (!attemptId || !sesskey) {
-            console.error("[AP] Missing attemptId or sesskey for session creation");
+        if (!attemptId) {
+            console.error("[AP] Missing attemptId for session creation");
             return;
         }
 
-        fetch(M.cfg.wwwroot + "/mod/quiz/accessrule/autoproctor/create_session.php", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-                sesskey: sesskey,
-                attemptid: attemptId,
+        Ajax.call([{
+            methodname: 'quizaccess_autoproctor_create_session',
+            args: {
+                attemptid: parseInt(attemptId, 10),
                 test_attempt_id: testAttemptId,
                 tracking_options: JSON.stringify(trackingOptions),
-            }),
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                return response.json();
-            })
+            },
+        }])[0]
             .then(data => {
                 if (!data.success) {
                     console.error("[AP] Session creation failed:", data.error);
