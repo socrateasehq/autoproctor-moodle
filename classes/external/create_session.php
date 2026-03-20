@@ -124,24 +124,40 @@ class create_session extends external_api {
             }
 
             // Create the session object.
-            $session = new \stdClass();
-            $session->quiz_id = $quizid;
-            $session->quiz_attempt_id = $attemptid;
-            $session->test_attempt_id = $testattemptid;
-            $session->started_at = time();
-            $session->tracking_options = $trackingoptions;
-            $session->timecreated = time();
-            $session->timemodified = time();
+            $newsession = new \stdClass();
+            $newsession->quiz_id = $quizid;
+            $newsession->quiz_attempt_id = $attemptid;
+            $newsession->test_attempt_id = $testattemptid;
+            $newsession->started_at = time();
+            $newsession->tracking_options = $trackingoptions;
+            $newsession->timecreated = time();
+            $newsession->timemodified = time();
 
-            // Insert the session into the database.
-            $session->id = $DB->insert_record('quizaccess_autoproctor_sessions', $session);
+            try {
+                // Insert the session into the database.
+                $newsession->id = $DB->insert_record('quizaccess_autoproctor_sessions', $newsession);
 
-            return [
-                'success' => true,
-                'error' => '',
-                'session_id' => (int)$session->id,
-                'is_new_session' => true,
-            ];
+                return [
+                    'success' => true,
+                    'error' => '',
+                    'session_id' => (int)$newsession->id,
+                    'is_new_session' => true,
+                ];
+            } catch (dml_exception $e) {
+                // Handle race condition: another request may have inserted the session.
+                // Re-query to check if session now exists.
+                $existingsession = $DB->get_record('quizaccess_autoproctor_sessions', ['quiz_attempt_id' => $attemptid], '*');
+                if ($existingsession) {
+                    return [
+                        'success' => true,
+                        'error' => '',
+                        'session_id' => (int)$existingsession->id,
+                        'is_new_session' => false,
+                    ];
+                }
+                // Not a duplicate key error, rethrow.
+                throw $e;
+            }
 
         } catch (dml_exception $e) {
             // Database errors - don't expose details.
