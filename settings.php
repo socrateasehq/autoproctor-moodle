@@ -24,14 +24,53 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Info-only setting that renders on the upgrade settings page.
+ *
+ * Moodle's upgradesettings.php only shows settings where get_setting() returns null.
+ * admin_setting_heading and admin_setting_description always return true, so they
+ * are filtered out. This class returns null until the settings are first saved,
+ * allowing the info text to appear during initial plugin installation.
+ */
+if (!class_exists('quizaccess_autoproctor_setting_info')) {
+class quizaccess_autoproctor_setting_info extends admin_setting {
+    public function __construct($name, $description) {
+        parent::__construct($name, '', $description, '');
+    }
+
+    public function get_setting() {
+        return $this->config_read($this->name);
+    }
+
+    public function get_defaultsetting() {
+        return '';
+    }
+
+    public function write_setting($data) {
+        $this->config_write($this->name, '1');
+        return '';
+    }
+
+    public function output_html($data, $query = '') {
+        $html = '<div class="form-item row" id="admin-' . $this->name . '">';
+        $html .= '<div class="form-label col-sm-3"></div>';
+        $html .= '<div class="form-setting col-sm-9">';
+        $html .= '<div class="form-description mt-3 mb-3">' . highlight($query, $this->description) . '</div>';
+        $html .= '<input type="hidden" name="' . $this->get_full_name() . '" value="1" />';
+        $html .= '</div>';
+        $html .= '</div>';
+        return $html;
+    }
+}
+}
+
 if ($hassiteconfig) {
     $settings = new admin_settingpage('quizaccess_autoproctor', get_string('pluginname', 'quizaccess_autoproctor'));
     $ADMIN->add('modsettings', $settings);
 
-    // Credentials info heading
-    $settings->add(new admin_setting_heading(
+    // Credentials info - custom class so it renders on upgradesettings.php during first install.
+    $settings->add(new quizaccess_autoproctor_setting_info(
         'quizaccess_autoproctor/credentials_info',
-        '',
         get_string('credentials_info', 'quizaccess_autoproctor')
     ));
 
